@@ -4,6 +4,7 @@ import {
   setStoredDocuments,
   appendStoredAuditLog,
 } from './storage';
+import { notificationService } from './notificationService';
 
 export async function calculateSHA256(file: File): Promise<string> {
   const buffer = await file.arrayBuffer();
@@ -24,7 +25,16 @@ export interface UploadDocumentPayload {
 }
 
 export const documentService = {
-  async getDocuments(): Promise<VaultDocument[]> {
+  async getDocuments(userId?: string): Promise<VaultDocument[]> {
+    try {
+      const url = userId ? `/api/documents?userId=${encodeURIComponent(userId)}` : '/api/documents';
+      const res = await fetch(url);
+      if (res.ok) {
+        const liveDocs = await res.json();
+        setStoredDocuments(liveDocs);
+        return liveDocs;
+      }
+    } catch {}
     return getStoredDocuments();
   },
 
@@ -93,6 +103,7 @@ export const documentService = {
         outcome: 'SUCCESS',
         details: { permissionEvaluated: permission },
       });
+      notificationService.notifyUserAction('DOC_VIEW', currentUser, doc.title);
     }
 
     return { document: doc, userPermission: permission };
@@ -101,6 +112,31 @@ export const documentService = {
   async uploadDocument(payload: UploadDocumentPayload, currentUser: User): Promise<VaultDocument> {
     const docs = getStoredDocuments();
     const hash = payload.calculatedHash || (await calculateSHA256(payload.file));
+
+    try {
+      const formData = new FormData();
+      formData.append('title', payload.title);
+      formData.append('description', payload.description || '');
+      formData.append('classification', payload.classification);
+      formData.append('watermarkEnabled', String(payload.watermarkEnabled));
+      formData.append('downloadRestricted', String(payload.downloadRestricted));
+      formData.append('ownerId', currentUser.id);
+      formData.append('file', payload.file);
+
+      const res = await fetch('/api/documents', {
+        method: 'POST',
+        body: formData,
+      });
+      if (res.ok) {
+        const liveDoc: VaultDocument = await res.json();
+        const updated = [liveDoc, ...docs.filter((d) => d.id !== liveDoc.id)];
+        setStoredDocuments(updated);
+        notificationService.notifyDocUpload(liveDoc, currentUser);
+        return liveDoc;
+      }
+    } catch {
+      // Fallback to local evaluation
+    }
 
     const newDocId = `doc-${Date.now()}`;
     const initialVersion = {
@@ -138,6 +174,7 @@ export const documentService = {
 
     const updated = [newDoc, ...docs];
     setStoredDocuments(updated);
+    notificationService.notifyDocUpload(newDoc, currentUser);
 
     appendStoredAuditLog({
       id: `audit-${Date.now()}`,
@@ -190,6 +227,7 @@ export const documentService = {
 
     const filtered = docs.filter((d) => d.id !== id);
     setStoredDocuments(filtered);
+    notificationService.notifyUserAction('DOC_DELETE', currentUser, target.title);
 
     appendStoredAuditLog({
       id: `audit-${Date.now()}`,
@@ -277,6 +315,8 @@ export const documentService = {
         ephemeralSignedUrlIssued: true,
       },
     });
+
+    notificationService.notifyUserAction('DOC_DOWNLOAD', currentUser, doc.title);
 
     // Generate safe mock download blob
     const fileContent = `--- TRUSTVAULT SECURE EXPORT ---

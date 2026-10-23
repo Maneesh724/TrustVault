@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -10,346 +10,358 @@ import {
   Mail,
   Eye,
   EyeOff,
-  UserCheck,
   AlertCircle,
+  KeyRound,
+  RefreshCw,
+  Sparkles,
   ArrowRight,
   Clock,
+  RotateCcw,
 } from 'lucide-react';
 import { getRoleLandingRoute } from '../../types';
 
 export const LoginPage: React.FC = () => {
-  const { login, allUsers } = useAuth();
+  const { login } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState('admin@trustvault.com');
-  const [password, setPassword] = useState('••••••••••••');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isPendingApproval, setIsPendingApproval] = useState(false);
-  const [showSampleEmail, setShowSampleEmail] = useState(false);
 
-  const executeLogin = async (loginEmail: string) => {
+  // Math CAPTCHA
+  const [captchaA, setCaptchaA] = useState(0);
+  const [captchaB, setCaptchaB] = useState(0);
+  const [captchaAnswer, setCaptchaAnswer] = useState('');
+  const [captchaError, setCaptchaError] = useState(false);
+
+  const generateCaptcha = useCallback(() => {
+    setCaptchaA(Math.floor(Math.random() * 9) + 1);
+    setCaptchaB(Math.floor(Math.random() * 9) + 1);
+    setCaptchaAnswer('');
+    setCaptchaError(false);
+  }, []);
+
+  useEffect(() => { generateCaptcha(); }, [generateCaptcha]);
+
+  const executeLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim() || !password) {
+      showToast('Missing Credentials', 'Please enter your corporate email address and password.', 'warning');
+      return;
+    }
+
+    // CAPTCHA validation
+    if (parseInt(captchaAnswer) !== captchaA + captchaB) {
+      setCaptchaError(true);
+      generateCaptcha();
+      showToast('Security Check Failed', 'Please solve the math challenge correctly.', 'error');
+      return;
+    }
+    setCaptchaError(false);
+
     setLoading(true);
     setErrorMsg('');
     setIsPendingApproval(false);
     try {
-      const loggedUser = await login(loginEmail);
-      const targetRoute = getRoleLandingRoute(loggedUser.role);
+      const loggedUser = await login(email.trim().toLowerCase(), password, rememberMe);
+      const targetRoute = getRoleLandingRoute(loggedUser.role, loggedUser.status);
       showToast(
-        'Authentication Succeeded',
-        `Authenticated as ${loggedUser.name} (${loggedUser.role}). Redirecting to concurrent ${loggedUser.role} workspace...`,
+        'Authentication Successful',
+        `Authenticated as ${loggedUser.name} (${loggedUser.role}). Redirecting...`,
         'success',
-        2500
+        2000
       );
       navigate(targetRoute);
     } catch (err: any) {
-      const msg = err.message || 'Login failed. Please verify credentials.';
+      const msg = err.message || 'Login failed. Please verify your credentials.';
       setErrorMsg(msg);
-      if (msg.includes('Pending Authorization')) {
+      if (msg.toLowerCase().includes('pending approval') || msg.toLowerCase().includes('pending authorization')) {
         setIsPendingApproval(true);
-        showToast('Authorization Required', 'Your registration is awaiting approval by an Administrator or Document Owner.', 'warning', 5000);
-      } else {
-        showToast('Authentication Blocked', msg, 'error');
       }
+      showToast('Authentication Notice', msg, 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email) {
-      showToast('Email Required', 'Please enter your corporate email address.', 'warning');
-      return;
-    }
-    executeLogin(email);
-  };
-
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-[#0A0D14] flex items-center justify-center p-4 sm:p-6 lg:p-8 font-sans selection:bg-emerald-500/30 selection:text-emerald-200 relative overflow-hidden">
+      
+      {/* Background Ambient Glow Orbs */}
+      <div className="absolute top-1/4 -left-48 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none animate-pulse" />
+      <div className="absolute bottom-1/4 -right-48 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+
       {/* Main Split Authentication Container */}
-      <div className="w-full max-w-4xl bg-white rounded-2xl sm:rounded-3xl shadow-xl overflow-hidden flex flex-col md:flex-row border border-slate-200/80">
+      <div className="w-full max-w-4xl bg-[#101522] rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row border border-emerald-950/40 relative z-10 backdrop-blur-md">
         
-        {/* Left Side: Deep Navy Blue Brand Panel */}
-        <div className="w-full md:w-[48%] bg-[#081B36] p-8 sm:p-10 lg:p-12 text-white flex flex-col justify-between relative overflow-hidden">
-          {/* Subtle background curved decorative glow */}
-          <div className="absolute -top-24 -left-24 w-80 h-80 bg-blue-600/15 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-24 -right-24 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+        {/* Left Side: Dark Charcoal & Emerald Brand Panel */}
+        <div className="w-full md:w-[48%] bg-gradient-to-b from-[#0D121F] via-[#101726] to-[#0A0D14] p-8 sm:p-10 lg:p-12 text-white flex flex-col justify-between relative overflow-hidden border-b md:border-b-0 md:border-r border-emerald-950/30">
+          
+          {/* Subtle interior glow */}
+          <div className="absolute -top-24 -left-24 w-80 h-80 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-24 -right-24 w-80 h-80 bg-purple-500/15 rounded-full blur-3xl pointer-events-none" />
 
           {/* Top Logo & Title */}
           <div className="relative z-10">
-            <div className="flex items-center gap-3.5 mb-2">
-              {/* Shield Logo with Padlock */}
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30 shrink-0 relative">
-                <Shield className="w-6 h-6 text-white" />
-                <Lock className="w-3 h-3 text-white absolute bottom-2.5 right-2.5 drop-shadow" />
+            <Link to="/" className="flex items-center gap-3.5 mb-2 group">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500/20 via-teal-500/20 to-purple-500/20 border border-emerald-500/40 flex items-center justify-center shadow-lg shadow-emerald-500/20 shrink-0 relative transition-transform group-hover:scale-105 duration-300">
+                <Shield className="w-6 h-6 text-emerald-400 stroke-[2.2]" />
+                <Lock className="w-3.5 h-3.5 text-emerald-300 absolute bottom-2 right-2 drop-shadow" />
               </div>
-              <span className="text-2xl font-bold tracking-tight text-white">TrustVault</span>
-            </div>
+              <div>
+                <span className="text-2xl font-black tracking-tight text-white block">
+                  Trust<span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">Vault</span>
+                </span>
+                <span className="text-[10px] uppercase font-mono tracking-wider text-emerald-400/80 block -mt-0.5">
+                  Enterprise Zero-Trust
+                </span>
+              </div>
+            </Link>
 
-            <div className="mt-4">
-              <h2 className="text-sm sm:text-base font-normal text-slate-300 leading-snug">
-                Secure Document Sharing
-              </h2>
-              <p className="text-sm sm:text-base font-normal text-slate-300 leading-snug">
-                With a Real Audit Trail
+            <div className="mt-6">
+              <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight leading-snug">
+                Your documents. <br />
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">
+                  Your control.
+                </span>
+              </h1>
+              <p className="text-xs sm:text-sm font-normal text-slate-400 mt-2 leading-relaxed">
+                Hardware-grade protection for confidential files with granular document permissions and verifiable audit trails.
               </p>
             </div>
           </div>
 
-          {/* 3 Core Security Feature Callouts */}
-          <div className="space-y-6 my-8 md:my-12 relative z-10">
-            {/* Feature 1 */}
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0 mt-0.5">
-                <ShieldCheck className="w-5 h-5" />
+          {/* Animated Center Shield Illustration */}
+          <div className="my-6 md:my-8 relative z-10 flex items-center justify-center">
+            <div className="relative w-48 h-36 flex items-center justify-center">
+              {/* Outer Pulse Rings */}
+              <div className="absolute inset-0 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 backdrop-blur-xs flex items-center justify-center animate-pulse" />
+              <div className="absolute w-36 h-28 rounded-xl border border-teal-400/30 bg-slate-950/60 flex items-center justify-center shadow-inner" />
+              
+              {/* Center Graphic */}
+              <div className="relative flex flex-col items-center">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 border border-emerald-400/40 flex items-center justify-center shadow-xl shadow-emerald-500/30">
+                  <KeyRound className="w-7 h-7 text-slate-950 stroke-[2.4]" />
+                </div>
+                <div className="mt-2 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-[10px] text-emerald-300 font-mono">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                  ARGON2ID • ZERO-TRUST
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Feature Highlights */}
+          <div className="space-y-3 relative z-10 text-xs">
+            <div className="flex items-start gap-3">
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 mt-0.5">
+                <ShieldCheck className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-white tracking-wide">Controlled Access</h3>
-                <p className="text-xs text-slate-300/80 mt-0.5 leading-relaxed">
-                  Only the right people can see your documents.
-                </p>
+                <span className="font-semibold text-white block">Document-Level Authorization</span>
+                <span className="text-[11px] text-slate-400 leading-tight">Explicit cryptographic grants with immediate revocation.</span>
               </div>
             </div>
 
-            {/* Feature 2 */}
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0 mt-0.5">
-                <FileText className="w-5 h-5" />
+            <div className="flex items-start gap-3">
+              <div className="w-7 h-7 rounded-lg bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400 shrink-0 mt-0.5">
+                <FileText className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-white tracking-wide">Full Audit Trail</h3>
-                <p className="text-xs text-slate-300/80 mt-0.5 leading-relaxed">
-                  Know who accessed what, and when.
-                </p>
-              </div>
-            </div>
-
-            {/* Feature 3 */}
-            <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-xl bg-blue-500/15 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0 mt-0.5">
-                <Lock className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-white tracking-wide">Enterprise Security</h3>
-                <p className="text-xs text-slate-300/80 mt-0.5 leading-relaxed">
-                  Your data, your control.
-                </p>
+                <span className="font-semibold text-white block">Immutable Audit Ledger</span>
+                <span className="text-[11px] text-slate-400 leading-tight">Every view, download, and permission change is recorded.</span>
               </div>
             </div>
           </div>
 
           {/* Bottom Security Badge */}
-          <div className="relative z-10 pt-2 border-t border-slate-800/80 text-[11px] text-slate-400 flex items-center justify-between">
-            <span>Zero-Trust Architecture</span>
-            <span className="text-blue-400 font-mono">SHA-256 Verified</span>
+          <div className="relative z-10 pt-4 mt-4 border-t border-slate-800/80 text-[11px] text-slate-400 flex items-center justify-between">
+            <span className="flex items-center gap-1 text-slate-400">
+              <Sparkles className="w-3 h-3 text-emerald-400" />
+              <span>Zero-Trust Enterprise</span>
+            </span>
+            <span className="text-emerald-400 font-mono text-[10px]">High Assurance</span>
           </div>
         </div>
 
-        {/* Right Side: Clean White Login Form Panel */}
-        <div className="w-full md:w-[52%] bg-white p-8 sm:p-10 lg:p-12 flex flex-col justify-between">
+        {/* Right Side: Sleek Charcoal Login Form Panel */}
+        <div className="w-full md:w-[52%] bg-[#0E1422] p-8 sm:p-10 lg:p-12 flex flex-col justify-between text-white">
           <div>
             <div className="mb-6">
-              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
-                Welcome Back
-              </h1>
-              <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                Sign in to your TrustVault account
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                Welcome back
+              </h2>
+              <p className="text-xs sm:text-sm text-slate-400 mt-1">
+                Sign in securely to access your authorized document vault.
               </p>
             </div>
 
-            {isPendingApproval ? (
-              <div className="mb-4 p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900 animate-in fade-in space-y-2.5">
-                <div className="flex items-start gap-2.5">
-                  <Clock className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                  <div>
-                    <div className="font-bold text-amber-800 text-xs">Account Registration Pending Approval</div>
-                    <p className="text-amber-700 mt-1 leading-relaxed text-[11px]">
-                      Your account has been registered, but requires authorization from an <strong>Administrator</strong> or <strong>Document Owner</strong> before you can log in.
-                    </p>
-                  </div>
+            {/* Pending Approval Notice Banner */}
+            {isPendingApproval && (
+              <div className="mb-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-200 space-y-1.5 animate-in fade-in">
+                <div className="font-bold flex items-center gap-1.5 text-amber-400">
+                  <Clock className="w-4 h-4" />
+                  <span>Awaiting Administrator Approval</span>
                 </div>
-                <div className="pt-2 border-t border-amber-200/80 flex items-center justify-between text-[11px]">
-                  <span className="text-amber-700 flex items-center gap-1 font-medium">
-                    <Mail className="w-3.5 h-3.5 text-amber-600" /> Notification sent via email upon approval
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowSampleEmail(true)}
-                    className="font-semibold text-blue-700 hover:text-blue-800 underline cursor-pointer"
-                  >
-                    View Status Email
-                  </button>
-                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  Your Document Owner account was successfully registered, but must be approved by an Administrator before you can log in. An Admin can authorize your account in the Admin Dashboard.
+                </p>
               </div>
-            ) : errorMsg ? (
-              <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-start gap-2 animate-in fade-in">
-                <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-                <span>{errorMsg}</span>
-              </div>
-            ) : null}
+            )}
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            {errorMsg && !isPendingApproval && (
+              <div className="mb-4 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 flex items-start gap-2.5 animate-in fade-in">
+                <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                <span className="leading-snug">{errorMsg}</span>
+              </div>
+            )}
+
+            <form onSubmit={executeLogin} className="space-y-4">
               {/* Email Input */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Email address
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  Corporate Email Address
                 </label>
                 <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type="email"
                     required
+                    autoComplete="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="admin@trustvault.com"
-                    className="w-full bg-white border border-slate-300 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-all"
+                    placeholder="name@company.com"
+                    className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl pl-10 pr-3.5 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
                   />
                 </div>
               </div>
 
               {/* Password Input */}
               <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                  Password
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-300">
+                    Password
+                  </label>
+                  <Link to="/forgot-password" className="text-[11px] text-emerald-400 hover:text-emerald-300 transition-colors">
+                    Forgot password?
+                  </Link>
+                </div>
                 <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     required
+                    autoComplete="current-password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full bg-white border border-slate-300 rounded-xl pl-10 pr-10 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-100 transition-all"
+                    placeholder="••••••••••••"
+                    className="w-full bg-slate-900/90 border border-slate-700/80 rounded-xl pl-10 pr-10 py-2.5 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 p-1 cursor-pointer"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
 
-              {/* Remember Me & Forgot Password */}
-              <div className="flex items-center justify-between text-xs pt-0.5">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
+              {/* Math CAPTCHA Challenge */}
+              <div className="p-4 rounded-2xl bg-slate-900/70 border border-slate-700/60 space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                    <Shield className="w-3.5 h-3.5 text-emerald-400" />
+                    Security Verification
+                  </label>
+                  <button
+                    type="button"
+                    onClick={generateCaptcha}
+                    className="text-slate-500 hover:text-emerald-400 transition-colors p-1 rounded-lg hover:bg-slate-800"
+                    title="Generate new challenge"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="px-4 py-2.5 bg-gradient-to-br from-emerald-900/50 to-teal-900/40 border border-emerald-700/40 rounded-xl text-center font-mono font-extrabold text-xl text-emerald-300 min-w-[3.2rem] shadow-inner">
+                    {captchaA}
+                  </div>
+                  <span className="text-xl font-bold text-slate-500">+</span>
+                  <div className="px-4 py-2.5 bg-gradient-to-br from-purple-900/50 to-indigo-900/40 border border-purple-700/40 rounded-xl text-center font-mono font-extrabold text-xl text-purple-300 min-w-[3.2rem] shadow-inner">
+                    {captchaB}
+                  </div>
+                  <span className="text-xl font-bold text-slate-500">=</span>
+                  <input
+                    type="number"
+                    value={captchaAnswer}
+                    onChange={(e) => { setCaptchaAnswer(e.target.value); setCaptchaError(false); }}
+                    placeholder="?"
+                    className={`w-20 py-2.5 text-center font-mono font-bold text-lg bg-slate-950 border rounded-xl text-white placeholder-slate-600 focus:outline-none transition-all ${captchaError ? 'border-rose-500 ring-1 ring-rose-500/40 text-rose-300' : 'border-slate-700 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40'}`}
+                  />
+                </div>
+                {captchaError && (
+                  <p className="text-xs text-rose-400 flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    Incorrect answer — a new challenge has been generated.
+                  </p>
+                )}
+              </div>
+
+              {/* Remember Me */}
+              <div className="flex items-center justify-between text-xs pt-1">
+                <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 accent-blue-600 rounded cursor-pointer"
+                    className="w-4 h-4 accent-emerald-500 bg-slate-900 border-slate-700 rounded"
                   />
-                  <span className="text-slate-700 font-medium">Remember me</span>
+                  <span>Remember this device</span>
                 </label>
-                <a
-                  href="#forgot"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    showToast('Enterprise Reset', 'Password recovery tokens require Security Admin approval.', 'info');
-                  }}
-                  className="text-blue-600 hover:text-blue-700 font-medium hover:underline"
-                >
-                  Forgot password?
-                </a>
               </div>
 
-              {/* Sign In Button */}
+              {/* Submit Button */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full mt-2 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-60 text-white text-sm font-semibold shadow-md shadow-blue-500/25 transition-all flex items-center justify-center gap-2"
+                className="w-full mt-2 py-3 px-4 rounded-xl font-bold text-sm bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-50 hover:scale-[1.01] active:scale-[0.99]"
               >
-                {loading ? 'Authenticating...' : 'Sign in'}
+                {loading ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
+                    <span>Signing in securely...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Sign in securely</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </>
+                )}
               </button>
             </form>
+          </div>
 
-            {/* Divider */}
-            <div className="relative my-6 text-center">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-slate-200" />
-              </div>
-              <span className="relative bg-white px-3 text-xs text-slate-400 font-medium">or</span>
-            </div>
-
-            {/* Register Link */}
-            <div className="text-center text-xs text-slate-600">
-              Don't have an account?{' '}
-              <Link to="/register" className="font-semibold text-blue-600 hover:text-blue-700 hover:underline">
-                Create Account
+          <div className="pt-6 mt-6 border-t border-slate-800 text-center text-xs text-slate-400 flex items-center justify-between">
+            <span>
+              <Link to="/register/owner" className="text-emerald-400 hover:text-emerald-300 font-semibold underline-offset-4 hover:underline">
+                Register as Document Owner
               </Link>
-            </div>
-          </div>
-
-          {/* Clean Enterprise Footer (Unnecessary quick buttons removed) */}
-          <div className="mt-8 pt-4 border-t border-slate-100 text-center text-[11px] text-slate-400">
-            <p>TrustVault Zero-Trust Gatekeeper • Dynamic Grant Enforcement</p>
+            </span>
+            <span>
+              <Link to="/register/viewer" className="text-purple-400 hover:text-purple-300 font-semibold underline-offset-4 hover:underline">
+                Register as Viewer
+              </Link>
+            </span>
           </div>
         </div>
-
       </div>
-
-      {/* Simulated Email Modal */}
-      {showSampleEmail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95">
-            <div className="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
-                  <Mail className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-slate-900">Email Notification Preview</h4>
-                  <p className="text-[10px] text-slate-500">Zero-Trust Access Request Dispatch</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowSampleEmail(false)}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg text-sm"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="p-5 space-y-3.5 text-xs">
-              <div className="space-y-1 pb-3 border-b border-slate-100 font-mono text-[11px] text-slate-500 bg-slate-50/70 p-2.5 rounded-xl border">
-                <div><strong className="text-slate-700">From:</strong> compliance@trustvault.internal</div>
-                <div><strong className="text-slate-700">To:</strong> {email || 'user@company.com'}</div>
-                <div><strong className="text-slate-700">Subject:</strong> [TrustVault] Access Request Awaiting Authorization</div>
-              </div>
-              <div className="text-slate-700 leading-relaxed space-y-2 text-xs">
-                <p>Hello,</p>
-                <p>
-                  Your registration with verified mobile OTP has been successfully submitted to TrustVault.
-                </p>
-                <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] space-y-1">
-                  <div className="font-bold flex items-center gap-1.5 text-amber-800">
-                    <Clock className="w-3.5 h-3.5" /> Next Steps: Authorization Required
-                  </div>
-                  <p>
-                    An <strong>Administrator</strong> or <strong>Document Owner</strong> must authorize your account. Once access has been granted, you will receive an automated activation email allowing you to log in.
-                  </p>
-                </div>
-                <p className="text-[11px] text-slate-500">
-                  If this request was not initiated by you, please report it immediately to security@trustvault.internal.
-                </p>
-              </div>
-            </div>
-            <div className="p-3.5 bg-slate-50 border-t border-slate-100 flex justify-end">
-              <button
-                onClick={() => setShowSampleEmail(false)}
-                className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 transition-colors shadow-xs"
-              >
-                Close Preview
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

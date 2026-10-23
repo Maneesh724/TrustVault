@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { useToast } from '../../context/ToastContext';
-import { authService, SendOtpResponse } from '../../services/authService';
-import { UserRole } from '../../types';
+import { authService, InvitationInfo } from '../../services/authService';
 import {
   Shield,
   Lock,
@@ -14,729 +13,856 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
-  Clock,
   ArrowRight,
-  ShieldAlert,
-  Send,
-  Building,
+  ShieldCheck,
+  RefreshCw,
+  UserCheck,
+  Check,
+  FileKey,
+  Sparkles,
+  Clock,
+  SendHorizonal,
+  MailCheck,
 } from 'lucide-react';
+
+const COUNTRY_CODES = [
+  { code: '+1', country: 'US / CA' },
+  { code: '+44', country: 'UK' },
+  { code: '+91', country: 'IN' },
+  { code: '+49', country: 'DE' },
+  { code: '+33', country: 'FR' },
+  { code: '+61', country: 'AU' },
+  { code: '+81', country: 'JP' },
+  { code: '+65', country: 'SG' },
+  { code: '+971', country: 'UAE' },
+];
 
 export const RegisterPage: React.FC = () => {
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const inviteToken = searchParams.get('invite') || '';
 
-  // Form inputs
+  // Current view: 'form' | 'owner-pending' | 'viewer-ready'
+  const [viewState, setViewState] = useState<'form' | 'owner-pending' | 'viewer-ready'>('form');
+
+  // Invitation info
+  const [invitationInfo, setInvitationInfo] = useState<InvitationInfo | null>(null);
+  const [verifyingInvite, setVerifyingInvite] = useState(false);
+
+  // Form details
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [department, setDepartment] = useState('Enterprise Security');
-  const [role, setRole] = useState<UserRole>('VIEWER');
-  const [adminToken, setAdminToken] = useState('');
-
-  // Mobile number & OTP state
+  const [role, setRole] = useState<'OWNER' | 'VIEWER'>('OWNER');
   const [countryCode, setCountryCode] = useState('+91');
   const [mobileNumber, setMobileNumber] = useState('');
-  const [otpInput, setOtpInput] = useState('');
-  const [isOtpSent, setIsOtpSent] = useState(false);
-  const [isOtpVerified, setIsOtpVerified] = useState(false);
-  const [otpVerificationToken, setOtpVerificationToken] = useState('');
-  const [otpResponseInfo, setOtpResponseInfo] = useState<SendOtpResponse | null>(null);
-  const [otpCooldown, setOtpCooldown] = useState(0);
-  const [otpSending, setOtpSending] = useState(false);
-  const [otpVerifying, setOtpVerifying] = useState(false);
-
-  // Password & confirm password
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [agreeTerms, setAgreeTerms] = useState(true);
+  const [agreeTerms, setAgreeTerms] = useState(false);
 
-  // Submission & UI status
-  const [loading, setLoading] = useState(false);
+  // UI status
+  const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [registeredSuccessData, setRegisteredSuccessData] = useState<any | null>(null);
+  const [createdUser, setCreatedUser] = useState<any | null>(null);
 
-  // OTP resend cooldown timer
+  // Email OTP state
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
+  const [emailOtpDigits, setEmailOtpDigits] = useState(['', '', '', '', '', '']);
+  const [emailOtpToken, setEmailOtpToken] = useState('');
+  const [emailOtpVerified, setEmailOtpVerified] = useState(false);
+  const [emailOtpSending, setEmailOtpSending] = useState(false);
+  const [emailOtpVerifying, setEmailOtpVerifying] = useState(false);
+  const [emailOtpError, setEmailOtpError] = useState('');
+  const [emailCooldown, setEmailCooldown] = useState(0);
+  const [devOtpDisplay, setDevOtpDisplay] = useState('');
+  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // Check invitation token on mount
   useEffect(() => {
-    if (otpCooldown <= 0) return;
-    const timer = setInterval(() => {
-      setOtpCooldown((prev) => prev - 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [otpCooldown]);
+    if (inviteToken) {
+      setVerifyingInvite(true);
+      authService.verifyInvitation(inviteToken).then((info) => {
+        setInvitationInfo(info);
+        if (info.valid && info.email) {
+          setEmail(info.email);
+        }
+        if (info.valid && info.role) {
+          setRole(info.role === 'OWNER' ? 'OWNER' : 'VIEWER');
+        }
+        setVerifyingInvite(false);
+      });
+    }
+  }, [inviteToken]);
+
+  // Cooldown countdown timer for OTP resend
+  useEffect(() => {
+    if (emailCooldown > 0) {
+      const t = setTimeout(() => setEmailCooldown(c => c - 1), 1000);
+      return () => clearTimeout(t);
+    }
+  }, [emailCooldown]);
+
+  // Reset OTP state when email changes
+  useEffect(() => {
+    setEmailOtpSent(false);
+    setEmailOtpVerified(false);
+    setEmailOtpDigits(['', '', '', '', '', '']);
+    setEmailOtpToken('');
+    setEmailOtpError('');
+    setDevOtpDisplay('');
+  }, [email]);
 
   // Password strength calculation
-  const calculatePasswordStrength = (pwd: string): number => {
+  const calculateStrength = (pwd: string) => {
     let score = 0;
     if (pwd.length >= 8) score++;
+    if (pwd.length >= 12) score++;
     if (/[A-Z]/.test(pwd)) score++;
     if (/[0-9]/.test(pwd)) score++;
     if (/[^A-Za-z0-9]/.test(pwd)) score++;
     return score;
   };
+  const strengthScore = calculateStrength(password);
 
-  const strength = calculatePasswordStrength(password);
+  const getStrengthLabel = (score: number) => {
+    if (score <= 1) return { label: 'Weak', color: 'bg-rose-500', text: 'text-rose-400' };
+    if (score <= 3) return { label: 'Medium', color: 'bg-amber-500', text: 'text-amber-400' };
+    return { label: 'Strong', color: 'bg-emerald-500', text: 'text-emerald-400' };
+  };
+
   const fullPhoneNumber = `${countryCode} ${mobileNumber.trim()}`;
 
-  // --------------------------------------------------------------------------
-  // OTP Dispatch Handler
-  // --------------------------------------------------------------------------
-  const handleSendOtp = async () => {
-    if (!mobileNumber.trim() || mobileNumber.trim().length < 7) {
-      showToast('Mobile Number Required', 'Please enter a valid mobile number.', 'warning');
+  // OTP digit input helpers
+  const handleOtpDigitChange = (idx: number, val: string) => {
+    if (!/^\d*$/.test(val)) return;
+    const newDigits = [...emailOtpDigits];
+    newDigits[idx] = val.slice(-1);
+    setEmailOtpDigits(newDigits);
+    if (val && idx < 5) otpInputRefs.current[idx + 1]?.focus();
+  };
+  const handleOtpKeyDown = (idx: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !emailOtpDigits[idx] && idx > 0) otpInputRefs.current[idx - 1]?.focus();
+  };
+  const handleOtpPaste = (e: React.ClipboardEvent) => {
+    const pasted = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6);
+    if (pasted.length === 6) { setEmailOtpDigits(pasted.split('')); e.preventDefault(); }
+  };
+
+  // Send email OTP
+  const handleSendEmailOtp = async () => {
+    if (!email.trim() || !email.includes('@')) {
+      setErrorMsg('Please enter a valid email address before sending OTP.');
       return;
     }
-
-    setOtpSending(true);
-    setErrorMsg('');
+    setEmailOtpSending(true);
+    setEmailOtpError('');
     try {
-      const res = await authService.requestOtp(fullPhoneNumber, role);
-      setOtpResponseInfo(res);
-      setIsOtpSent(true);
-      setOtpCooldown(30); // 30-second cooldown for resend
-      if (res.isDevelopmentMode && res.devOtp) {
-        showToast(
-          'Development Mode OTP',
-          `Live SMS provider not configured. Your single-use test OTP is: ${res.devOtp}`,
-          'info',
-          7000
-        );
-      } else {
-        showToast('OTP Dispatched', `Verification code sent to ${fullPhoneNumber}`, 'success');
-      }
+      const res = await authService.requestEmailOtp(email.trim().toLowerCase());
+      setEmailOtpSent(true);
+      setEmailCooldown(60);
+      setEmailOtpDigits(['', '', '', '', '', '']);
+      setEmailOtpVerified(false);
+      if (res.devOtp) setDevOtpDisplay(res.devOtp);
+      showToast('OTP Sent', `Verification code sent to ${email}`, 'success');
+      setTimeout(() => otpInputRefs.current[0]?.focus(), 100);
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to dispatch OTP.');
-      showToast('OTP Request Failed', err.message, 'error');
+      setEmailOtpError(err.message || 'Failed to send OTP. Please try again.');
+      showToast('OTP Error', err.message, 'error');
     } finally {
-      setOtpSending(false);
+      setEmailOtpSending(false);
     }
   };
 
-  // --------------------------------------------------------------------------
-  // OTP Verification Handler
-  // --------------------------------------------------------------------------
-  const handleVerifyOtp = async () => {
-    if (!otpInput.trim() || otpInput.trim().length !== 6) {
-      showToast('Invalid OTP', 'Please enter the 6-digit verification code.', 'warning');
-      return;
-    }
-
-    setOtpVerifying(true);
-    setErrorMsg('');
+  // Verify email OTP
+  const handleVerifyEmailOtp = async () => {
+    const code = emailOtpDigits.join('');
+    if (code.length !== 6) { setEmailOtpError('Please enter the complete 6-digit code.'); return; }
+    setEmailOtpVerifying(true);
+    setEmailOtpError('');
     try {
-      const res = await authService.verifyOtp(fullPhoneNumber, otpInput.trim());
-      setIsOtpVerified(true);
-      setOtpVerificationToken(res.verificationToken);
-      showToast('Mobile Verified', 'Mobile number cryptographically verified.', 'success');
+      const res = await authService.verifyEmailOtp(email.trim().toLowerCase(), code);
+      setEmailOtpToken(res.verificationToken);
+      setEmailOtpVerified(true);
+      showToast('Email Verified ✓', 'Email address verified successfully.', 'success');
     } catch (err: any) {
-      setErrorMsg(err.message || 'OTP verification failed.');
-      showToast('Verification Failed', err.message, 'error');
+      setEmailOtpError(err.message || 'Invalid OTP. Please try again.');
     } finally {
-      setOtpVerifying(false);
+      setEmailOtpVerifying(false);
     }
   };
 
-  // --------------------------------------------------------------------------
-  // Account Creation Submission
-  // --------------------------------------------------------------------------
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Form submission (Direct registration without OTP)
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
 
-    // Frontend validations
-    if (!name.trim() || !email.trim() || !password) {
-      showToast('Missing Fields', 'Please fill in all mandatory fields.', 'warning');
+    if (!name.trim()) {
+      setErrorMsg('Full Name is required.');
       return;
     }
-
-    if (!isOtpVerified || !otpVerificationToken) {
-      showToast('Mobile Verification Required', 'You must verify your mobile number via OTP before creating an account.', 'warning');
-      setErrorMsg('Mobile OTP verification is required to complete registration.');
+    if (!email.trim() || !email.includes('@')) {
+      setErrorMsg('Please enter a valid corporate email address.');
       return;
     }
-
+    if (!mobileNumber.trim() || mobileNumber.trim().length < 7) {
+      setErrorMsg('Please provide a valid mobile number with country code.');
+      return;
+    }
+    if (password.length < 8) {
+      setErrorMsg('Password must be at least 8 characters long.');
+      return;
+    }
     if (password !== confirmPassword) {
-      showToast('Password Mismatch', 'Password and confirm password do not match.', 'error');
       setErrorMsg('Passwords do not match. Please verify your entries.');
       return;
     }
-
-    if (strength < 2) {
-      showToast('Weak Password', 'Password must meet enterprise complexity standards (at least 8 chars with numbers/symbols).', 'warning');
-      return;
-    }
-
-    if (role === 'ADMIN' && !adminToken.trim()) {
-      showToast('Provisioning Passcode Required', 'Administrator accounts cannot be self-registered without a provisioning passcode.', 'error');
-      setErrorMsg('Privilege Escalation Blocked: Administrator accounts require a valid Enterprise Provisioning Passcode.');
-      return;
-    }
-
     if (!agreeTerms) {
-      showToast('Terms Required', 'Please accept the zero-trust data governance policy.', 'warning');
+      setErrorMsg('You must acknowledge and accept TrustVault zero-trust terms.');
       return;
     }
 
-    setLoading(true);
+    if (!emailOtpVerified) {
+      setErrorMsg('Please verify your email address using the OTP before completing registration.');
+      return;
+    }
+
+    setSubmitting(true);
     try {
-      const result = await authService.register({
+      const res = await authService.register({
         name: name.trim(),
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         phone: fullPhoneNumber,
-        role,
         password,
-        department: department.trim(),
-        otpVerificationToken,
-        adminProvisioningToken: role === 'ADMIN' ? adminToken.trim() : undefined,
+        role: role,
+        department: role === 'OWNER' ? 'Document Vault Operations' : 'Document Review',
+        emailVerificationToken: emailOtpToken,
+        inviteToken: inviteToken || undefined,
       });
 
-      setRegisteredSuccessData(result);
-      showToast(
-        'Registration Submitted',
-        'Account registered with status PENDING_APPROVAL. Awaiting administrator or document owner authorization.',
-        'success',
-        6000
-      );
+      setCreatedUser(res.user);
+
+      if (role === 'OWNER') {
+        setViewState('owner-pending');
+        showToast('Account Created', 'Document Owner account awaiting Administrator approval.', 'info', 4000);
+      } else {
+        setViewState('viewer-ready');
+        showToast('Account Created', 'Viewer account active. You can now sign in.', 'success', 3500);
+      }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Registration failed.');
-      showToast('Registration Blocked', err.message, 'error');
+      const msg = err.message || 'Registration failed. Please check your details.';
+      setErrorMsg(msg);
+      showToast('Registration Error', msg, 'error');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
-  // --------------------------------------------------------------------------
-  // Render Post-Registration Pending Approval Screen
-  // --------------------------------------------------------------------------
-  if (registeredSuccessData) {
-    return (
-      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4 sm:p-6 lg:p-8">
-        <div className="w-full max-w-2xl bg-white rounded-3xl shadow-xl border border-slate-200/80 p-8 sm:p-10 animate-in fade-in zoom-in-95">
-          {/* Header */}
-          <div className="flex items-center gap-3.5 mb-6 pb-6 border-b border-slate-100">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 shrink-0">
-              <Clock className="w-6 h-6 animate-pulse" />
+  return (
+    <div className="min-h-screen flex flex-col lg:flex-row bg-[#0A0D14] text-slate-100 font-sans selection:bg-emerald-500/30 selection:text-emerald-200">
+      
+      {/* ------------------------------------------------------------------ */}
+      {/* LEFT BRANDING PANEL - Obsidian Charcoal with Cyber Emerald & Violet Glow */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="lg:w-5/12 bg-gradient-to-b from-[#0D121F] via-[#101726] to-[#0A0D14] p-8 lg:p-14 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-emerald-950/40 relative overflow-hidden">
+        
+        {/* Animated Glow Elements */}
+        <div className="absolute -top-32 -left-32 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none animate-pulse" />
+        <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Top: Logo & Value Proposition */}
+        <div className="relative z-10">
+          <Link to="/" className="inline-flex items-center gap-3.5 group">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500/20 via-teal-500/20 to-purple-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition-all duration-300 shadow-[0_0_25px_rgba(16,185,129,0.25)]">
+              <Shield className="w-6 h-6 stroke-[2.2]" />
             </div>
             <div>
-              <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-                Registration Submitted — Awaiting Approval
-              </h2>
-              <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                TrustVault Zero-Trust Governance • Account Status: <span className="font-semibold text-amber-700">PENDING_APPROVAL</span>
-              </p>
+              <span className="text-2xl font-black tracking-tight text-white flex items-center gap-1">
+                Trust<span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300">Vault</span>
+              </span>
+              <span className="text-[10px] tracking-widest uppercase font-semibold text-emerald-400/80 block -mt-1">
+                Zero-Trust Security
+              </span>
             </div>
+          </Link>
+
+          <div className="mt-12 space-y-4">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-medium shadow-[0_0_15px_rgba(16,185,129,0.15)]">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-400 animate-spin" style={{ animationDuration: '6s' }} />
+              <span>Role-Enforced Document Security</span>
+            </div>
+            <h1 className="text-3xl lg:text-4xl font-extrabold tracking-tight text-white leading-tight">
+              Your Documents. <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-purple-400">
+                Your Control.
+              </span>
+            </h1>
+            <p className="text-slate-400 text-sm leading-relaxed max-w-md">
+              TrustVault establishes absolute document sovereignty with hardware-grade zero-trust access control, continuous audit tracking, and dynamic watermarking.
+            </p>
+          </div>
+        </div>
+
+        {/* Center: Architecture Callouts */}
+        <div className="my-10 relative z-10 space-y-3 max-w-sm">
+          <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 text-xs space-y-2">
+            <div className="font-bold text-slate-200 flex items-center gap-2">
+              <FileKey className="w-4 h-4 text-emerald-400" />
+              <span>Document Owner Workflow</span>
+            </div>
+            <p className="text-slate-400 text-[11px] leading-relaxed">
+              Registers publicly &bull; Awaits Administrator approval &bull; Once approved, gains full vault ownership, drag-and-drop uploads, and dynamic granular sharing.
+            </p>
           </div>
 
-          {/* Details Card */}
-          <div className="space-y-4 text-xs text-slate-700">
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/70 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              <div>
-                <span className="text-[11px] text-slate-400 uppercase tracking-wider block font-semibold">User Identity</span>
-                <span className="font-bold text-slate-900 text-sm">{registeredSuccessData.user.name}</span>
-                <span className="text-slate-500 block truncate">{registeredSuccessData.user.email}</span>
-              </div>
-              <div>
-                <span className="text-[11px] text-slate-400 uppercase tracking-wider block font-semibold">Requested Role</span>
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 mt-1 rounded-md text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                  {registeredSuccessData.user.role}
-                </span>
-                <span className="text-emerald-700 block text-[11px] font-medium mt-1">
-                  ✓ Mobile Verified ({registeredSuccessData.user.phone})
-                </span>
-              </div>
+          <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 text-xs space-y-2">
+            <div className="font-bold text-slate-200 flex items-center gap-2">
+              <Eye className="w-4 h-4 text-purple-400" />
+              <span>Document Viewer Workflow</span>
             </div>
-
-            {/* Authorization Rule Callout */}
-            <div className="p-4 rounded-2xl bg-amber-50/80 border border-amber-200/80 text-amber-900 space-y-1.5">
-              <div className="font-bold flex items-center gap-2 text-amber-900">
-                <ShieldAlert className="w-4 h-4 text-amber-600" />
-                Zero-Trust Gatekeeping Policy
-              </div>
-              <p className="text-[11px] leading-relaxed text-amber-800">
-                {registeredSuccessData.approvalNotice}
-              </p>
-            </div>
-
-            {/* Simulated Email Confirmation Box */}
-            <div className="border border-slate-200 rounded-2xl overflow-hidden">
-              <div className="bg-slate-100/80 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between text-[11px]">
-                <span className="font-bold text-slate-700 flex items-center gap-1.5">
-                  <Mail className="w-3.5 h-3.5 text-blue-600" />
-                  Automated Notification Dispatched
-                </span>
-                <span className="font-mono text-slate-400">SMTP: 250 OK</span>
-              </div>
-              <div className="p-4 bg-white space-y-2 text-[11px]">
-                <div className="font-mono text-slate-500 border-b border-slate-100 pb-2 space-y-0.5">
-                  <div><strong>To:</strong> {registeredSuccessData.emailDispatched.to}</div>
-                  <div><strong>Subject:</strong> {registeredSuccessData.emailDispatched.subject}</div>
-                </div>
-                <p className="text-slate-600 pt-1 leading-relaxed">
-                  {registeredSuccessData.emailDispatched.preview}
-                </p>
-              </div>
-            </div>
+            <p className="text-slate-400 text-[11px] leading-relaxed">
+              Registers publicly &bull; Immediate active access &bull; Can sign in and securely inspect permitted documents with dynamic digital watermarking.
+            </p>
           </div>
+        </div>
 
-          {/* Action Buttons */}
-          <div className="mt-8 pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <span className="text-[11px] text-slate-400">
-              Need access urgently? Contact your security administrator.
-            </span>
-            <Link
-              to="/login"
-              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-md shadow-blue-500/20 transition-all text-center flex items-center justify-center gap-2 cursor-pointer"
-            >
-              Return to Login
-              <ArrowRight className="w-4 h-4" />
-            </Link>
+        {/* Bottom Security Tags */}
+        <div className="pt-6 border-t border-slate-800/80 flex flex-wrap gap-4 text-xs text-slate-400">
+          <div className="flex items-center gap-1.5 text-emerald-400/90 font-medium">
+            <Lock className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Argon2id Salted Hashing</span>
+          </div>
+          <div className="flex items-center gap-1.5 text-purple-400/90 font-medium">
+            <ShieldCheck className="w-3.5 h-3.5 text-purple-400" />
+            <span>Admin-Enforced Approval</span>
           </div>
         </div>
       </div>
-    );
-  }
 
-  // --------------------------------------------------------------------------
-  // Render Registration Form
-  // --------------------------------------------------------------------------
-  return (
-    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4 sm:p-6 lg:p-8">
-      {/* Main Split Container */}
-      <div className="w-full max-w-4xl bg-white rounded-2xl sm:rounded-3xl shadow-xl overflow-hidden flex flex-col md:flex-row border border-slate-200/80">
+      {/* ------------------------------------------------------------------ */}
+      {/* RIGHT INTERACTIVE FORM PANEL */}
+      {/* ------------------------------------------------------------------ */}
+      <div className="lg:w-7/12 flex items-center justify-center p-6 sm:p-10 lg:p-14 bg-[#080B12] relative overflow-hidden">
         
-        {/* Left Side: Deep Navy Blue Brand Panel */}
-        <div className="w-full md:w-[42%] bg-[#081B36] p-8 sm:p-10 text-white flex flex-col justify-between relative overflow-hidden">
-          <div className="absolute -top-24 -left-24 w-80 h-80 bg-blue-600/15 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-24 -right-24 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+        {/* Subtle background ambient blur */}
+        <div className="absolute top-10 right-10 w-72 h-72 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
 
-          {/* Top Logo & Title */}
-          <div className="relative z-10">
-            <div className="flex items-center gap-3.5 mb-2">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30 shrink-0 relative">
-                <Shield className="w-6 h-6 text-white" />
-                <Lock className="w-3 h-3 text-white absolute bottom-2.5 right-2.5 drop-shadow" />
+        <div className="w-full max-w-xl relative z-10">
+
+          {/* Invitation banner if valid token */}
+          {inviteToken && (
+            <div className="mb-6 p-4 rounded-2xl bg-purple-950/40 border border-purple-500/30 flex items-start gap-3 shadow-lg shadow-purple-900/10">
+              <UserCheck className="w-5 h-5 text-purple-400 shrink-0 mt-0.5" />
+              <div className="text-xs">
+                {verifyingInvite ? (
+                  <span className="text-slate-300">Validating invitation token...</span>
+                ) : invitationInfo?.valid ? (
+                  <div>
+                    <span className="font-semibold text-purple-200">Authorized Invitation Detected</span>
+                    <p className="text-slate-300 mt-0.5">
+                      Invited as <span className="font-bold text-emerald-400">{invitationInfo.role || 'VIEWER'}</span> by{' '}
+                      <span className="font-bold text-white">{invitationInfo.inviterName || 'Administrator'}</span>.
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <span className="font-semibold text-rose-400">Invitation Expired</span>
+                    <p className="text-slate-300 mt-0.5">
+                      This token has expired. You may still proceed with standard registration.
+                    </p>
+                  </div>
+                )}
               </div>
-              <span className="text-2xl font-bold tracking-tight text-white">TrustVault</span>
             </div>
+          )}
 
-            <div className="mt-4">
-              <h2 className="text-sm font-semibold text-slate-200">
-                Zero-Trust Enrollment
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
-                Cryptographic authentication, mobile verification, and mandatory administrator authorization.
-              </p>
-            </div>
-          </div>
-
-          {/* Core Requirements Bulletins */}
-          <div className="space-y-5 my-8 relative z-10">
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-500/15 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0 mt-0.5">
-                <Phone className="w-4 h-4" />
-              </div>
+          {/* ---------------------------------------------------------------- */}
+          {/* VIEW: MAIN REGISTRATION FORM (NO OTP) */}
+          {/* ---------------------------------------------------------------- */}
+          {viewState === 'form' && (
+            <div className="space-y-6">
               <div>
-                <h3 className="text-xs font-semibold text-white">Mobile OTP Verification</h3>
-                <p className="text-[11px] text-slate-300/80 mt-0.5 leading-relaxed">
-                  Single-use 5-minute code validated on the server before registration.
+                <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white flex items-center gap-2">
+                  Create your account
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-400 mt-1">
+                  Select your role and complete form details to register with TrustVault.
                 </p>
               </div>
-            </div>
 
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-500/15 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0 mt-0.5">
-                <Clock className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="text-xs font-semibold text-white">Account Approval Gate</h3>
-                <p className="text-[11px] text-slate-300/80 mt-0.5 leading-relaxed">
-                  Accounts are saved as PENDING_APPROVAL until verified by authorized personnel.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-500/15 border border-blue-500/20 flex items-center justify-center text-blue-400 shrink-0 mt-0.5">
-                <Lock className="w-4 h-4" />
-              </div>
-              <div>
-                <h3 className="text-xs font-semibold text-white">Role-Based Security</h3>
-                <p className="text-[11px] text-slate-300/80 mt-0.5 leading-relaxed">
-                  Public self-registration for Administrators is blocked to prevent privilege escalation.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Bottom Footer */}
-          <div className="relative z-10 pt-3 border-t border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
-            <span>STRIDE Protected</span>
-            <span className="text-blue-400 font-mono">Argon2id / Scrypt</span>
-          </div>
-        </div>
-
-        {/* Right Side: Registration Form */}
-        <div className="w-full md:w-[58%] bg-white p-7 sm:p-9 lg:p-10 flex flex-col justify-between">
-          <div>
-            <div className="mb-5">
-              <h1 className="text-2xl font-bold tracking-tight text-slate-900">
-                Create TrustVault Account
-              </h1>
-              <p className="text-xs text-slate-500 mt-1">
-                Enter your details to initiate your zero-trust access request.
-              </p>
-            </div>
-
-            {errorMsg && (
-              <div className="mb-4 p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 flex items-start gap-2 animate-in fade-in">
-                <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-                <span>{errorMsg}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-3.5">
-              {/* Full Legal Name */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Full Name *
-                </label>
-                <div className="relative">
-                  <UserIcon className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    type="text"
-                    required
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Jordan Mitchell"
-                    className="w-full bg-white border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-100"
-                  />
+              {errorMsg && (
+                <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-start gap-3 text-xs text-rose-300 animate-in fade-in">
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-400" />
+                  <span>{errorMsg}</span>
                 </div>
-              </div>
+              )}
 
-              {/* Email Address & Department Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <form onSubmit={handleRegisterSubmit} className="space-y-5">
+                
+                {/* 1. ROLE SELECTION CARDS (Document Owner vs Viewer) */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Corporate Email *
+                  <label className="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-2.5">
+                    Account Role
                   </label>
-                  <div className="relative">
-                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="jordan@company.com"
-                      className="w-full bg-white border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-100"
-                    />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    
+                    {/* Option 1: Document Owner */}
+                    <button
+                      type="button"
+                      onClick={() => setRole('OWNER')}
+                      className={`p-4 rounded-2xl border text-left transition-all duration-300 relative group ${
+                        role === 'OWNER'
+                          ? 'bg-gradient-to-br from-emerald-950/60 via-slate-900 to-emerald-900/30 border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.25)] ring-1 ring-emerald-400/50'
+                          : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900/90'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 ${
+                            role === 'OWNER'
+                              ? 'bg-emerald-500/20 text-emerald-400 shadow-sm shadow-emerald-500/20'
+                              : 'bg-slate-800 text-slate-400'
+                          }`}
+                        >
+                          <FileKey className="w-5 h-5" />
+                        </div>
+                        <div
+                          className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
+                            role === 'OWNER'
+                              ? 'border-emerald-400 bg-emerald-500 text-slate-950 shadow-sm shadow-emerald-500/40'
+                              : 'border-slate-700 bg-slate-800'
+                          }`}
+                        >
+                          {role === 'OWNER' && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                        </div>
+                      </div>
+                      <div className="font-bold text-sm text-white">Document Owner</div>
+                      <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                        Encrypt & manage vaults, upload documents, grant and revoke access permissions. (Requires Admin approval).
+                      </p>
+                    </button>
+
+                    {/* Option 2: Viewer */}
+                    <button
+                      type="button"
+                      onClick={() => setRole('VIEWER')}
+                      className={`p-4 rounded-2xl border text-left transition-all duration-300 relative group ${
+                        role === 'VIEWER'
+                          ? 'bg-gradient-to-br from-purple-950/60 via-slate-900 to-purple-900/30 border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.25)] ring-1 ring-purple-400/50'
+                          : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-900/90'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div
+                          className={`w-9 h-9 rounded-xl flex items-center justify-center transition-transform group-hover:scale-110 ${
+                            role === 'VIEWER'
+                              ? 'bg-purple-500/20 text-purple-400 shadow-sm shadow-purple-500/20'
+                              : 'bg-slate-800 text-slate-400'
+                          }`}
+                        >
+                          <Eye className="w-5 h-5" />
+                        </div>
+                        <div
+                          className={`w-5 h-5 rounded-full border flex items-center justify-center transition-all ${
+                            role === 'VIEWER'
+                              ? 'border-purple-400 bg-purple-500 text-slate-950 shadow-sm shadow-purple-500/40'
+                              : 'border-slate-700 bg-slate-800'
+                          }`}
+                        >
+                          {role === 'VIEWER' && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                        </div>
+                      </div>
+                      <div className="font-bold text-sm text-white">Viewer</div>
+                      <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                        Securely inspect permitted documents with real-time audit logs and watermarking. (Instant login).
+                      </p>
+                    </button>
                   </div>
                 </div>
 
+                {/* 2. FULL NAME */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Department
-                  </label>
+                  <label className="block text-xs font-medium text-slate-300 mb-1.5">Full Name</label>
                   <div className="relative">
-                    <Building className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <UserIcon className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
                     <input
                       type="text"
-                      value={department}
-                      onChange={(e) => setDepartment(e.target.value)}
-                      placeholder="e.g. Compliance"
-                      className="w-full bg-white border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-100"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Role Selection */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Requested Role *
-                </label>
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as UserRole)}
-                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-100 font-medium cursor-pointer"
-                >
-                  <option value="VIEWER">Viewer (Access & Download Shared Documents)</option>
-                  <option value="OWNER">Document Owner (Upload & Manage Protected Documents)</option>
-                  <option value="ADMIN">Administrator (Platform & Identity Governance)</option>
-                </select>
-
-                {/* Role Specific Explanations & Security Warnings */}
-                {role === 'ADMIN' && (
-                  <div className="mt-2 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] space-y-2">
-                    <div className="font-bold flex items-center gap-1.5 text-amber-800">
-                      <ShieldAlert className="w-4 h-4 text-amber-600" />
-                      Privilege Escalation Protection
-                    </div>
-                    <p className="leading-relaxed text-amber-800">
-                      Administrator accounts cannot be created via public self-registration. An enterprise provisioning passcode is required.
-                    </p>
-                    <div>
-                      <label className="block text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-1">
-                        Admin Provisioning Passcode *
-                      </label>
-                      <input
-                        type="password"
-                        value={adminToken}
-                        onChange={(e) => setAdminToken(e.target.value)}
-                        placeholder="Enter provisioning secret (e.g. TV-ADMIN-PROVISION-2026)"
-                        className="w-full bg-white border border-amber-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600"
-                      />
-                    </div>
-                  </div>
-                )}
-                {role === 'OWNER' && (
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    ℹ️ Document Owner accounts require Administrator authorization prior to activation.
-                  </p>
-                )}
-                {role === 'VIEWER' && (
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    ℹ️ Viewer accounts require Document Owner or Administrator authorization.
-                  </p>
-                )}
-              </div>
-
-              {/* Mobile Number with Country Code (+91) & Send OTP */}
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1">
-                  Mobile Number *
-                </label>
-                <div className="flex gap-2">
-                  <select
-                    value={countryCode}
-                    onChange={(e) => setCountryCode(e.target.value)}
-                    disabled={isOtpVerified}
-                    className="w-24 bg-white border border-slate-300 rounded-xl px-2 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-600 font-medium cursor-pointer"
-                  >
-                    <option value="+91">+91 (IN)</option>
-                    <option value="+1">+1 (US)</option>
-                    <option value="+44">+44 (UK)</option>
-                    <option value="+61">+61 (AU)</option>
-                    <option value="+49">+49 (DE)</option>
-                  </select>
-
-                  <div className="relative flex-1">
-                    <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type="tel"
                       required
-                      disabled={isOtpVerified}
-                      value={mobileNumber}
-                      onChange={(e) => setMobileNumber(e.target.value)}
-                      placeholder="9876543210"
-                      className="w-full bg-white border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 disabled:bg-slate-50"
+                      placeholder="Jane Doe"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 bg-slate-900/80 border border-slate-700/80 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
                     />
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={handleSendOtp}
-                    disabled={otpSending || otpCooldown > 0 || isOtpVerified}
-                    className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white text-xs font-semibold transition-all shrink-0 flex items-center gap-1.5 cursor-pointer shadow-xs"
-                  >
-                    {otpSending ? 'Sending...' : otpCooldown > 0 ? `Resend (${otpCooldown}s)` : 'Send OTP'}
-                    <Send className="w-3 h-3" />
-                  </button>
                 </div>
 
-                {isOtpVerified && (
-                  <div className="mt-1.5 flex items-center gap-1.5 text-xs text-emerald-700 font-semibold">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    Mobile Number Verified
-                  </div>
-                )}
-              </div>
-
-              {/* Clearly Labelled Development Mode Notice (when live SMS credentials not present) */}
-              {isOtpSent && otpResponseInfo?.isDevelopmentMode && !isOtpVerified && (
-                <div className="p-3 rounded-xl bg-blue-50/80 border border-blue-200 text-blue-950 text-[11px] space-y-1 animate-in fade-in">
-                  <div className="font-bold flex items-center justify-between text-blue-900">
-                    <span className="flex items-center gap-1">
-                      <Shield className="w-3.5 h-3.5 text-blue-600" />
-                      DEVELOPMENT MODE: SMS Provider Not Configured
-                    </span>
-                    <span className="font-mono bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-[10px]">
-                      Single-Use Code
-                    </span>
-                  </div>
-                  <p className="text-blue-800 leading-relaxed">
-                    Live SMS credentials (Twilio/AWS SNS) are not set in environment variables.
-                    Your server-generated 5-minute verification code is:
-                  </p>
-                  <div className="pt-1 flex items-center gap-2">
-                    <span className="font-mono text-base font-bold text-blue-700 tracking-widest bg-white px-2.5 py-0.5 rounded-lg border border-blue-200">
-                      {otpResponseInfo.devOtp}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setOtpInput(otpResponseInfo.devOtp || '')}
-                      className="text-[11px] text-blue-700 font-semibold underline hover:text-blue-900"
-                    >
-                      Autofill OTP
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* OTP Input & Verify OTP Button (Shown after sending until verified) */}
-              {isOtpSent && !isOtpVerified && (
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 space-y-2 animate-in fade-in">
-                  <label className="block text-xs font-semibold text-slate-700">
-                    Enter 6-Digit OTP *
-                  </label>
+                {/* 3. CORPORATE EMAIL + OTP VERIFICATION */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1.5">Corporate Email Address</label>
                   <div className="flex gap-2">
                     <div className="relative flex-1">
-                      <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+                      {emailOtpVerified && <MailCheck className="w-4 h-4 text-emerald-400 absolute right-3.5 top-3.5" />}
                       <input
-                        type="text"
-                        maxLength={6}
-                        value={otpInput}
-                        onChange={(e) => setOtpInput(e.target.value.replace(/\D/g, ''))}
-                        placeholder="6-digit code"
-                        className="w-full bg-white border border-slate-300 rounded-xl pl-9 pr-3 py-2 text-xs font-mono tracking-widest text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600"
+                        type="email"
+                        required
+                        placeholder="name@company.com"
+                        value={email}
+                        disabled={Boolean((inviteToken && invitationInfo?.valid && invitationInfo?.email) || emailOtpVerified)}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className={`w-full pl-10 ${emailOtpVerified ? 'pr-10' : 'pr-4'} py-2.5 bg-slate-900/80 border rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none transition-all disabled:opacity-60 ${emailOtpVerified ? 'border-emerald-500/70 ring-1 ring-emerald-500/20' : 'border-slate-700/80 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500'}`}
                       />
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleVerifyOtp}
-                      disabled={otpVerifying || otpInput.length !== 6}
-                      className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white text-xs font-semibold transition-all shrink-0 cursor-pointer shadow-xs"
-                    >
-                      {otpVerifying ? 'Verifying...' : 'Verify OTP'}
-                    </button>
-                  </div>
-                  <span className="text-[10px] text-slate-500 block">
-                    Codes expire strictly after 5 minutes. Rate limits apply to invalid attempts.
-                  </span>
-                </div>
-              )}
-
-              {/* Password & Confirm Password */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {/* Master Password */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Password *
-                  </label>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full bg-white border border-slate-300 rounded-xl pl-9 pr-8 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
-                    >
-                      {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Confirm Password */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-700 mb-1">
-                    Confirm Password *
-                  </label>
-                  <div className="relative">
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                    <input
-                      type={showConfirmPassword ? 'text' : 'password'}
-                      required
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full bg-white border border-slate-300 rounded-xl pl-9 pr-8 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-600"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
-                    >
-                      {showConfirmPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Password Match & Strength Indicators */}
-              {password && (
-                <div className="space-y-1 pt-0.5">
-                  <div className="flex gap-1 h-1.5 w-full">
-                    {[1, 2, 3, 4].map((step) => (
-                      <div
-                        key={step}
-                        className={`flex-1 rounded-full transition-all ${
-                          strength >= step
-                            ? strength <= 1
-                              ? 'bg-rose-500'
-                              : strength <= 2
-                              ? 'bg-amber-500'
-                              : strength <= 3
-                              ? 'bg-blue-500'
-                              : 'bg-emerald-500'
-                            : 'bg-slate-200'
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <div className="flex items-center justify-between text-[10px]">
-                    <span className="text-slate-500 font-medium">
-                      {strength <= 1 ? 'Too weak' : strength === 2 ? 'Fair' : strength === 3 ? 'Good' : 'Strong enterprise password'}
-                    </span>
-                    {confirmPassword && (
-                      <span className={password === confirmPassword ? 'text-emerald-600 font-semibold' : 'text-rose-500 font-medium'}>
-                        {password === confirmPassword ? '✓ Passwords match' : '✗ Passwords do not match'}
-                      </span>
+                    {!emailOtpVerified && (
+                      <button
+                        type="button"
+                        onClick={handleSendEmailOtp}
+                        disabled={emailOtpSending || emailCooldown > 0 || !email.includes('@')}
+                        className="px-3 py-2.5 rounded-xl text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white border border-purple-500/50 disabled:opacity-50 disabled:cursor-not-allowed transition-all whitespace-nowrap flex items-center gap-1.5 shadow-md shadow-purple-500/20"
+                      >
+                        {emailOtpSending ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <SendHorizonal className="w-3.5 h-3.5" />}
+                        {emailCooldown > 0 ? `${emailCooldown}s` : emailOtpSent ? 'Resend' : 'Send OTP'}
+                      </button>
+                    )}
+                    {emailOtpVerified && (
+                      <div className="flex items-center gap-1.5 px-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold whitespace-nowrap">
+                        <CheckCircle2 className="w-4 h-4" />
+                        Verified
+                      </div>
                     )}
                   </div>
-                </div>
-              )}
 
-              {/* Terms and Conditions Checkbox */}
-              <div className="flex items-start gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="agree"
-                  checked={agreeTerms}
-                  onChange={(e) => setAgreeTerms(e.target.checked)}
-                  className="w-4 h-4 mt-0.5 accent-blue-600 rounded cursor-pointer"
-                />
-                <label htmlFor="agree" className="text-[11px] text-slate-600 leading-tight cursor-pointer">
-                  I agree to TrustVault's cryptographic data governance and zero-trust audit monitoring policy.
-                </label>
+                  {/* OTP Entry Panel */}
+                  {emailOtpSent && !emailOtpVerified && (
+                    <div className="mt-3 p-4 rounded-2xl bg-purple-950/30 border border-purple-500/30 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                      {devOtpDisplay && (
+                        <div className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 font-mono">
+                          [DEV MODE] Test OTP: <span className="font-bold tracking-widest text-amber-200">{devOtpDisplay}</span>
+                        </div>
+                      )}
+                      <p className="text-xs text-slate-300">Enter the 6-digit code sent to <span className="text-white font-semibold">{email}</span></p>
+                      <div className="flex gap-2 justify-center" onPaste={handleOtpPaste}>
+                        {emailOtpDigits.map((digit, idx) => (
+                          <input
+                            key={idx}
+                            ref={el => { otpInputRefs.current[idx] = el; }}
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={1}
+                            value={digit}
+                            onChange={e => handleOtpDigitChange(idx, e.target.value)}
+                            onKeyDown={e => handleOtpKeyDown(idx, e)}
+                            className="w-10 h-12 text-center text-lg font-bold bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400/50 transition-all"
+                          />
+                        ))}
+                      </div>
+                      {emailOtpError && (
+                        <p className="text-xs text-rose-400 flex items-center gap-1.5">
+                          <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                          {emailOtpError}
+                        </p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleVerifyEmailOtp}
+                        disabled={emailOtpVerifying || emailOtpDigits.join('').length !== 6}
+                        className="w-full py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+                      >
+                        {emailOtpVerifying ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <MailCheck className="w-3.5 h-3.5" />}
+                        {emailOtpVerifying ? 'Verifying...' : 'Verify Email OTP'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* 4. MOBILE NUMBER WITH COUNTRY CODE */}
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-1.5">Mobile Number</label>
+                  <div className="flex gap-2">
+                    <select
+                      value={countryCode}
+                      onChange={(e) => setCountryCode(e.target.value)}
+                      className="w-32 px-3 py-2.5 bg-slate-900/80 border border-slate-700/80 rounded-xl text-xs text-white focus:outline-none focus:border-emerald-500"
+                    >
+                      {COUNTRY_CODES.map((c) => (
+                        <option key={c.code} value={c.code} className="bg-slate-900 text-white">
+                          {c.code} ({c.country})
+                        </option>
+                      ))}
+                    </select>
+                    <div className="relative flex-1">
+                      <Phone className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+                      <input
+                        type="tel"
+                        required
+                        placeholder="9876543210"
+                        value={mobileNumber}
+                        onChange={(e) => setMobileNumber(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 bg-slate-900/80 border border-slate-700/80 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. PASSWORDS */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Master Password */}
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1.5">Password</label>
+                    <div className="relative">
+                      <KeyRound className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        placeholder="••••••••••••"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full pl-10 pr-10 py-2.5 bg-slate-900/80 border border-slate-700/80 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-200"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Confirm Password */}
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-1.5">Confirm Password</label>
+                    <div className="relative">
+                      <KeyRound className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        required
+                        placeholder="••••••••••••"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="w-full pl-10 pr-10 py-2.5 bg-slate-900/80 border border-slate-700/80 rounded-xl text-sm text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3.5 top-3 text-slate-400 hover:text-slate-200"
+                      >
+                        {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Password Strength Indicator */}
+                {password && (
+                  <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800 text-xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-slate-400 text-[11px]">Password Strength:</span>
+                      <span className={`font-semibold text-[11px] ${getStrengthLabel(strengthScore).text}`}>
+                        {getStrengthLabel(strengthScore).label}
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden flex gap-1">
+                      {[1, 2, 3, 4, 5].map((idx) => (
+                        <div
+                          key={idx}
+                          className={`flex-1 h-full transition-all duration-300 ${
+                            idx <= strengthScore ? getStrengthLabel(strengthScore).color : 'bg-transparent'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Terms Acknowledgement */}
+                <div className="flex items-start gap-3 pt-1">
+                  <input
+                    type="checkbox"
+                    id="terms"
+                    checked={agreeTerms}
+                    onChange={(e) => setAgreeTerms(e.target.checked)}
+                    className="mt-1 w-4 h-4 accent-emerald-500 bg-slate-900 border-slate-700 rounded focus:ring-emerald-500"
+                  />
+                  <label htmlFor="terms" className="text-xs text-slate-400 leading-relaxed cursor-pointer">
+                    I acknowledge TrustVault's zero-trust access control, continuous tamper-evident audit logging, and
+                    data governance terms.
+                  </label>
+                </div>
+
+                {/* Submit button */}
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full mt-4 py-3.5 px-4 rounded-xl font-bold text-sm bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-50 hover:scale-[1.01] active:scale-[0.99]"
+                >
+                  {submitting ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
+                      <span>Creating Account...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Complete Registration</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </button>
+              </form>
+
+              <div className="text-center text-xs text-slate-400 pt-4 border-t border-slate-800">
+                Already registered with TrustVault?{' '}
+                <Link to="/login" className="text-emerald-400 hover:text-emerald-300 font-semibold underline-offset-4 hover:underline">
+                  Sign in securely
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* ---------------------------------------------------------------- */}
+          {/* VIEW: DOCUMENT OWNER PENDING APPROVAL SCREEN */}
+          {/* ---------------------------------------------------------------- */}
+          {viewState === 'owner-pending' && createdUser && (
+            <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
+              <div className="w-16 h-16 rounded-3xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-xl shadow-amber-500/20">
+                <Clock className="w-8 h-8 stroke-[2.2]" />
               </div>
 
-              {/* Create Account Button */}
-              <button
-                type="submit"
-                disabled={loading || !agreeTerms || !isOtpVerified}
-                className="w-full mt-3 py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 text-white text-xs font-semibold shadow-md shadow-blue-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
-              >
-                {loading ? 'Submitting Registration...' : 'Create Account'}
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </form>
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-semibold mb-2">
+                  <span>Awaiting Administrator Authorization</span>
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+                  Registration Received
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-300 mt-2 leading-relaxed">
+                  Your Document Owner account for <span className="text-white font-semibold">{createdUser.email}</span> has been securely created and assigned status <span className="text-amber-400 font-bold uppercase">PENDING APPROVAL</span>.
+                </p>
+              </div>
 
-            {/* Return to Login Link */}
-            <div className="mt-5 text-center text-xs text-slate-600">
-              Already have an account?{' '}
-              <Link to="/login" className="font-semibold text-blue-600 hover:text-blue-700 hover:underline">
-                Sign in to vault
-              </Link>
+              {/* Account Details Box */}
+              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3.5 text-xs">
+                <div className="grid grid-cols-2 gap-4 pb-3 border-b border-slate-800">
+                  <div>
+                    <span className="text-slate-400 uppercase tracking-wider text-[10px] block font-semibold">
+                      Full Name
+                    </span>
+                    <span className="font-bold text-white text-sm">{createdUser.name}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 uppercase tracking-wider text-[10px] block font-semibold">
+                      Account Role
+                    </span>
+                    <span className="inline-block mt-0.5 px-2.5 py-0.5 rounded font-bold text-xs bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                      Document Owner
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-1 text-slate-300">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Account Status:</span>
+                    <span className="text-amber-400 font-bold uppercase tracking-wider text-[11px] bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/30 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                      PENDING_APPROVAL
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Login Policy:</span>
+                    <span className="text-slate-300">Blocked until Admin approval</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-xl bg-slate-900/50 border border-slate-800 text-xs text-slate-400 leading-relaxed">
+                <p>
+                  Per zero-trust security policy, pending Document Owners cannot access protected APIs or log in until an authorized Administrator approves the account in the Admin Dashboard.
+                </p>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => navigate('/login')}
+                  className="w-full py-3.5 px-4 rounded-xl font-bold text-sm bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 flex items-center justify-center gap-2 transition-all duration-200"
+                >
+                  <span>Return to Sign In</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
             </div>
-          </div>
-        </div>
+          )}
 
+          {/* ---------------------------------------------------------------- */}
+          {/* VIEW: VIEWER IMMEDIATE ACTIVE CONFIRMATION */}
+          {/* ---------------------------------------------------------------- */}
+          {viewState === 'viewer-ready' && createdUser && (
+            <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
+              <div className="w-16 h-16 rounded-3xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400 shadow-xl shadow-purple-500/20">
+                <CheckCircle2 className="w-8 h-8 stroke-[2.2]" />
+              </div>
+
+              <div>
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-semibold mb-2">
+                  <span>Account Active &bull; Instant Login Eligible</span>
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+                  Viewer Account Initialized
+                </h2>
+                <p className="text-xs sm:text-sm text-slate-300 mt-2 leading-relaxed">
+                  Your Viewer account has been created with status <span className="text-emerald-400 font-bold uppercase">ACTIVE</span>. You can sign in immediately to access documents explicitly shared with you.
+                </p>
+              </div>
+
+              {/* Account Details Box */}
+              <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 space-y-3.5 text-xs">
+                <div className="grid grid-cols-2 gap-4 pb-3 border-b border-slate-800">
+                  <div>
+                    <span className="text-slate-400 uppercase tracking-wider text-[10px] block font-semibold">
+                      Full Name
+                    </span>
+                    <span className="font-bold text-white text-sm">{createdUser.name}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 uppercase tracking-wider text-[10px] block font-semibold">
+                      Assigned Role
+                    </span>
+                    <span className="inline-block mt-0.5 px-2.5 py-0.5 rounded font-bold text-xs bg-purple-500/15 text-purple-400 border border-purple-500/30">
+                      Viewer
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-1 text-slate-300">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Account Status:</span>
+                    <span className="text-emerald-400 font-bold uppercase tracking-wider text-[11px] bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30 flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      ACTIVE
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Corporate Email:</span>
+                    <span className="text-white font-mono">{createdUser.email}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => navigate('/login')}
+                  className="w-full py-3.5 px-4 rounded-xl font-bold text-sm bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-400 hover:to-indigo-500 text-white shadow-lg shadow-purple-500/20 flex items-center justify-center gap-2 transition-all duration-200 hover:scale-[1.01]"
+                >
+                  <span>Sign in as Viewer</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+        </div>
       </div>
     </div>
   );

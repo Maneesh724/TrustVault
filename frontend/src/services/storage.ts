@@ -1,10 +1,11 @@
-import { User, VaultDocument, AuditLog, SecurityPolicy, ThreatAlert } from '../types';
+import { User, VaultDocument, AuditLog, SecurityPolicy, ThreatAlert, AdminNotification } from '../types';
 import {
   INITIAL_USERS,
   INITIAL_DOCUMENTS,
   INITIAL_AUDIT_LOGS,
   INITIAL_SECURITY_POLICIES,
-  INITIAL_THREAT_ALERTS
+  INITIAL_THREAT_ALERTS,
+  INITIAL_ADMIN_NOTIFICATIONS,
 } from './mockData';
 
 const STORAGE_KEYS = {
@@ -13,8 +14,18 @@ const STORAGE_KEYS = {
   AUDIT_LOGS: 'trustvault_audit_logs',
   POLICIES: 'trustvault_policies',
   THREATS: 'trustvault_threats',
+  NOTIFICATIONS: 'trustvault_admin_notifications',
   CURRENT_USER_ID: 'trustvault_current_user_id',
 };
+
+// Obsolete mock emails to purge from client memory
+const LEGACY_MOCK_EMAILS = [
+  'mike@trustvault.com',
+  'emily@trustvault.com',
+  'david@trustvault.com',
+  'elena.rostova@external-audit.com',
+  'alex.morgan@trustvault.com'
+];
 
 export const getStoredUsers = (): User[] => {
   const data = localStorage.getItem(STORAGE_KEYS.USERS);
@@ -24,12 +35,20 @@ export const getStoredUsers = (): User[] => {
   }
   try {
     const parsed: User[] = JSON.parse(data);
-    const adminUser = parsed.find((u) => u.role === 'ADMIN');
-    if (adminUser && adminUser.email !== 'admin@trustvault.com') {
-      adminUser.email = 'admin@trustvault.com';
-      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(parsed));
+    // Filter out obsolete demo credentials, keeping strictly Admin, Owner, and live registered users
+    const filtered = parsed.filter(u => !LEGACY_MOCK_EMAILS.includes(u.email.toLowerCase()));
+    
+    // Ensure admin and owner are present
+    INITIAL_USERS.forEach(iu => {
+      if (!filtered.some(u => u.email.toLowerCase() === iu.email.toLowerCase())) {
+        filtered.push(iu);
+      }
+    });
+
+    if (filtered.length !== parsed.length) {
+      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(filtered));
     }
-    return parsed;
+    return filtered;
   } catch {
     return INITIAL_USERS;
   }
@@ -42,13 +61,19 @@ export const setStoredUsers = (users: User[]): void => {
 export const getStoredDocuments = (): VaultDocument[] => {
   const data = localStorage.getItem(STORAGE_KEYS.DOCUMENTS);
   if (!data) {
-    localStorage.setItem(STORAGE_KEYS.DOCUMENTS, JSON.stringify(INITIAL_DOCUMENTS));
-    return INITIAL_DOCUMENTS;
+    localStorage.setItem(STORAGE_KEYS.DOCUMENTS, JSON.stringify([]));
+    return [];
   }
   try {
-    return JSON.parse(data);
+    const parsed: VaultDocument[] = JSON.parse(data);
+    // Filter out obsolete legacy mock documents
+    const liveDocs = parsed.filter(d => d.id !== 'doc-701' && d.id !== 'doc-702');
+    if (liveDocs.length !== parsed.length) {
+      localStorage.setItem(STORAGE_KEYS.DOCUMENTS, JSON.stringify(liveDocs));
+    }
+    return liveDocs;
   } catch {
-    return INITIAL_DOCUMENTS;
+    return [];
   }
 };
 
@@ -59,13 +84,15 @@ export const setStoredDocuments = (docs: VaultDocument[]): void => {
 export const getStoredAuditLogs = (): AuditLog[] => {
   const data = localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS);
   if (!data) {
-    localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(INITIAL_AUDIT_LOGS));
-    return INITIAL_AUDIT_LOGS;
+    localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify([]));
+    return [];
   }
   try {
-    return JSON.parse(data);
+    const parsed: AuditLog[] = JSON.parse(data);
+    const liveLogs = parsed.filter(l => !l.id.startsWith('audit-00') && !l.id.startsWith('audit-10'));
+    return liveLogs;
   } catch {
-    return INITIAL_AUDIT_LOGS;
+    return [];
   }
 };
 
@@ -95,18 +122,57 @@ export const setStoredPolicies = (policies: SecurityPolicy[]): void => {
 export const getStoredThreats = (): ThreatAlert[] => {
   const data = localStorage.getItem(STORAGE_KEYS.THREATS);
   if (!data) {
-    localStorage.setItem(STORAGE_KEYS.THREATS, JSON.stringify(INITIAL_THREAT_ALERTS));
-    return INITIAL_THREAT_ALERTS;
+    localStorage.setItem(STORAGE_KEYS.THREATS, JSON.stringify([]));
+    return [];
   }
   try {
-    return JSON.parse(data);
+    const parsed: ThreatAlert[] = JSON.parse(data);
+    return parsed.filter(t => t.id !== 'thr-1' && t.id !== 'thr-2');
   } catch {
-    return INITIAL_THREAT_ALERTS;
+    return [];
+  }
+};
+
+export const getStoredNotifications = (): AdminNotification[] => {
+  const data = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
+  if (!data) {
+    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify([]));
+    return [];
+  }
+  try {
+    const parsed: AdminNotification[] = JSON.parse(data);
+    // Filter out old seed notifications
+    return parsed.filter(n => !['notif-1', 'notif-2', 'notif-3', 'notif-4', 'notif-seed-001'].includes(n.id));
+  } catch {
+    return [];
+  }
+};
+
+export const setStoredNotifications = (notifs: AdminNotification[]): void => {
+  localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifs));
+};
+
+export const appendStoredNotification = (notif: AdminNotification): void => {
+  const notifs = getStoredNotifications();
+  const updated = [notif, ...notifs];
+  localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(updated));
+};
+
+export const updateStoredNotification = (id: string, updates: Partial<AdminNotification>): void => {
+  const notifs = getStoredNotifications();
+  const idx = notifs.findIndex((n) => n.id === id);
+  if (idx !== -1) {
+    notifs[idx] = { ...notifs[idx], ...updates };
+    localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifs));
   }
 };
 
 export const getCurrentUserId = (): string => {
-  return localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID) || 'user-002';
+  const id = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
+  if (!id || id === 'user-003' || id === 'user-005' || id === 'user-006' || id === 'user-007') {
+    return 'user-002'; // Default to admin
+  }
+  return id;
 };
 
 export const setCurrentUserId = (id: string): void => {
@@ -115,9 +181,10 @@ export const setCurrentUserId = (id: string): void => {
 
 export const resetAllDemoData = (): void => {
   localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(INITIAL_USERS));
-  localStorage.setItem(STORAGE_KEYS.DOCUMENTS, JSON.stringify(INITIAL_DOCUMENTS));
-  localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(INITIAL_AUDIT_LOGS));
+  localStorage.setItem(STORAGE_KEYS.DOCUMENTS, JSON.stringify([]));
+  localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify([]));
   localStorage.setItem(STORAGE_KEYS.POLICIES, JSON.stringify(INITIAL_SECURITY_POLICIES));
-  localStorage.setItem(STORAGE_KEYS.THREATS, JSON.stringify(INITIAL_THREAT_ALERTS));
+  localStorage.setItem(STORAGE_KEYS.THREATS, JSON.stringify([]));
+  localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify([]));
   localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, 'user-002');
 };

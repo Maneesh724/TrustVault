@@ -17,6 +17,8 @@ import {
   Clock,
 } from 'lucide-react';
 
+import { ChangePasswordSection } from '../../components/settings/ChangePasswordSection';
+
 export const ProfileSettingsPage: React.FC = () => {
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -262,6 +264,9 @@ export const ProfileSettingsPage: React.FC = () => {
           ))}
         </div>
       </div>
+
+      {/* Change Password Section */}
+      <ChangePasswordSection />
     </div>
   );
 };

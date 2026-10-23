@@ -124,7 +124,7 @@ export const AccessManageModal: React.FC<AccessManageModalProps> = ({
           {/* Grant New Access Section */}
           <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
             <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 mb-3">
-              <UserPlus className="w-4 h-4 text-blue-600" />
+              <UserPlus className="w-4 h-4 text-emerald-600" />
               Issue New Grant
             </h4>
 
@@ -137,7 +137,7 @@ export const AccessManageModal: React.FC<AccessManageModalProps> = ({
                     value={selectedUserId}
                     onChange={(e) => setSelectedUserId(e.target.value)}
                     required
-                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-blue-600"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-600"
                   >
                     <option value="">Select recipient...</option>
                     {eligibleUsers.map((u) => (
@@ -154,7 +154,7 @@ export const AccessManageModal: React.FC<AccessManageModalProps> = ({
                   <select
                     value={permission}
                     onChange={(e) => setPermission(e.target.value as PermissionLevel)}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-blue-600"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-600"
                   >
                     <option value="READ">Read Only (Preview)</option>
                     <option value="EDIT">Read & Edit (New Version)</option>
@@ -167,7 +167,7 @@ export const AccessManageModal: React.FC<AccessManageModalProps> = ({
                   <select
                     value={expirationOption}
                     onChange={(e) => setExpirationOption(e.target.value as any)}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-blue-600"
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-600"
                   >
                     <option value="NONE">Indefinite (No expiry)</option>
                     <option value="7D">7 Days</option>
@@ -184,7 +184,7 @@ export const AccessManageModal: React.FC<AccessManageModalProps> = ({
                     type="datetime-local"
                     value={customExpiresAt}
                     onChange={(e) => setCustomExpiresAt(e.target.value)}
-                    className="w-full sm:w-64 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-blue-600"
+                    className="w-full sm:w-64 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-600"
                   />
                 </div>
               )}
@@ -193,7 +193,7 @@ export const AccessManageModal: React.FC<AccessManageModalProps> = ({
                 <button
                   type="submit"
                   disabled={isGranting || !selectedUserId}
-                  className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white transition-all shadow-sm"
+                  className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white transition-all shadow-xs cursor-pointer"
                 >
                   {isGranting ? 'Authorizing...' : 'Grant Access'}
                 </button>

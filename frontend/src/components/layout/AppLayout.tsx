@@ -20,7 +20,7 @@ export const AppLayout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex">
+    <div className="min-h-screen bg-[#070A13] text-slate-100 flex selection:bg-emerald-500/30 selection:text-emerald-200">
       {/* Sidebar */}
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
@@ -30,7 +30,7 @@ export const AppLayout: React.FC = () => {
           onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
           pageTitle={getPageTitle(location.pathname)}
         />
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-[1600px] w-full mx-auto">
+        <main className="flex-1 p-4 sm:p-6 lg:p-7 max-w-[1700px] w-full mx-auto">
           <Outlet />
         </main>
       </div>

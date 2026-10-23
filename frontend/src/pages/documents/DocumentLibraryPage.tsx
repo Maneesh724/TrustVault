@@ -45,7 +45,7 @@ export const DocumentLibraryPage: React.FC = () => {
 
   const loadDocuments = async () => {
     try {
-      const docs = await documentService.getDocuments();
+      const docs = await documentService.getDocuments(user?.id);
       setDocuments(docs);
     } catch (err: any) {
       showToast('Error', err.message, 'error');
@@ -141,7 +141,7 @@ export const DocumentLibraryPage: React.FC = () => {
 
         <button
           onClick={() => setIsUploadOpen(true)}
-          className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-sm transition-all flex items-center gap-2 self-start sm:self-auto cursor-pointer"
+          className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-all flex items-center gap-2 self-start sm:self-auto cursor-pointer"
         >
           <UploadCloud className="w-4 h-4" />
           Upload Secure Document
@@ -159,7 +159,7 @@ export const DocumentLibraryPage: React.FC = () => {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search title, description, tags, SHA-256..."
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-blue-600 focus:bg-white transition-colors"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:bg-white transition-colors"
             />
           </div>
 
@@ -170,7 +170,7 @@ export const DocumentLibraryPage: React.FC = () => {
               <button
                 onClick={() => setScope('ALL')}
                 className={`px-3 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                  scope === 'ALL' ? 'bg-white text-blue-600 font-semibold shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                  scope === 'ALL' ? 'bg-white text-emerald-600 font-semibold shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 All Documents
@@ -178,7 +178,7 @@ export const DocumentLibraryPage: React.FC = () => {
               <button
                 onClick={() => setScope('MINE')}
                 className={`px-3 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                  scope === 'MINE' ? 'bg-white text-blue-600 font-semibold shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                  scope === 'MINE' ? 'bg-white text-emerald-600 font-semibold shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 Owned by Me
@@ -186,7 +186,7 @@ export const DocumentLibraryPage: React.FC = () => {
               <button
                 onClick={() => setScope('SHARED')}
                 className={`px-3 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                  scope === 'SHARED' ? 'bg-white text-blue-600 font-semibold shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                  scope === 'SHARED' ? 'bg-white text-emerald-600 font-semibold shadow-xs' : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 Shared With Me
@@ -198,7 +198,7 @@ export const DocumentLibraryPage: React.FC = () => {
               <button
                 onClick={() => setViewMode('grid')}
                 className={`p-1.5 rounded-lg transition-all cursor-pointer ${
-                  viewMode === 'grid' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                  viewMode === 'grid' ? 'bg-white text-emerald-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
                 }`}
                 title="Grid View"
               >
@@ -207,7 +207,7 @@ export const DocumentLibraryPage: React.FC = () => {
               <button
                 onClick={() => setViewMode('table')}
                 className={`p-1.5 rounded-lg transition-all cursor-pointer ${
-                  viewMode === 'table' ? 'bg-white text-blue-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
+                  viewMode === 'table' ? 'bg-white text-emerald-600 shadow-xs' : 'text-slate-500 hover:text-slate-800'
                 }`}
                 title="Table View"
               >
@@ -228,7 +228,7 @@ export const DocumentLibraryPage: React.FC = () => {
               onClick={() => setSelectedClassification(cls)}
               className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                 selectedClassification === cls
-                  ? 'bg-blue-50 text-blue-700 border border-blue-200 font-semibold shadow-xs'
+                  ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 font-semibold shadow-xs'
                   : 'bg-slate-50 text-slate-600 border border-slate-200 hover:bg-slate-100'
               }`}
             >

@@ -1,15 +1,18 @@
 export type UserRole = 'ADMIN' | 'OWNER' | 'VIEWER';
 
-export const getRoleLandingRoute = (role: UserRole): string => {
+export const getRoleLandingRoute = (role: UserRole, status?: string): string => {
+  if (status === 'PENDING_APPROVAL') {
+    return '/owner/pending-approval';
+  }
   switch (role) {
     case 'ADMIN':
-      return '/admin';
+      return '/admin/dashboard';
     case 'OWNER':
-      return '/dashboard';
+      return '/owner/dashboard';
     case 'VIEWER':
-      return '/shared';
+      return '/viewer/dashboard';
     default:
-      return '/admin';
+      return '/login';
   }
 };
 
@@ -24,6 +27,7 @@ export interface User {
   status: 'ACTIVE' | 'SUSPENDED' | 'INVITED' | 'PENDING_APPROVAL';
   phone?: string;
   phoneVerified?: boolean;
+  emailVerified?: boolean;
   approvedBy?: string;
   approvedAt?: string;
   lastLoginAt: string;
@@ -148,4 +152,31 @@ export interface SystemStats {
   storageUsedBytes: number;
   storageQuotaBytes: number;
   recentSecurityEventsCount: number;
+}
+
+export type AdminNotificationType =
+  | 'DOC_UPLOAD'
+  | 'USER_LOGIN'
+  | 'VIEWER_ACTION'
+  | 'OWNER_ACTION'
+  | 'ACCESS_APPROVAL_REQUEST'
+  | 'ACCESS_APPROVED'
+  | 'ACCESS_REJECTED';
+
+export interface AdminNotification {
+  id: string;
+  type: AdminNotificationType;
+  title: string;
+  message: string;
+  timestamp: string;
+  read: boolean;
+  actorId: string;
+  actorName: string;
+  actorEmail: string;
+  actorRole: UserRole;
+  targetResourceId?: string;
+  targetResourceName?: string;
+  pendingUserId?: string;
+  approvalStatus?: 'PENDING' | 'APPROVED' | 'REJECTED';
+  details?: Record<string, any>;
 }

@@ -29,7 +29,7 @@ export const SharedDocumentsPage: React.FC = () => {
   const loadSharedDocs = async () => {
     if (!user) return;
     try {
-      const allDocs = await documentService.getDocuments();
+      const allDocs = await documentService.getDocuments(user?.id);
       const filtered = allDocs.filter(
         (doc) =>
           doc.ownerId !== user.id &&
@@ -100,7 +100,7 @@ export const SharedDocumentsPage: React.FC = () => {
 
                   <Link
                     to={`/documents/${doc.id}`}
-                    className="text-sm font-bold text-slate-900 hover:text-blue-600 transition-colors line-clamp-1 block mb-1"
+                    className="text-sm font-bold text-slate-900 hover:text-emerald-600 transition-colors line-clamp-1 block mb-1"
                   >
                     {doc.title}
                   </Link>
@@ -140,7 +140,7 @@ export const SharedDocumentsPage: React.FC = () => {
                     </button>
                     <button
                       onClick={() => handleDownload(doc.id)}
-                      className="p-1.5 rounded-lg text-slate-500 hover:text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 transition-colors cursor-pointer"
                       title="Download"
                     >
                       <Download className="w-4 h-4" />
@@ -149,7 +149,7 @@ export const SharedDocumentsPage: React.FC = () => {
 
                   <Link
                     to={`/documents/${doc.id}`}
-                    className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1 cursor-pointer"
+                    className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 cursor-pointer"
                   >
                     View Details <ArrowRight className="w-3.5 h-3.5" />
                   </Link>

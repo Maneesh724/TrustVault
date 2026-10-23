@@ -7,18 +7,20 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   allUsers: User[];
-  login: (email: string, password?: string) => Promise<User>;
+  login: (email: string, password?: string, rememberMe?: boolean) => Promise<User>;
   register: (params: {
     name: string;
     email: string;
     phone: string;
-    role: UserRole;
     password: string;
     department?: string;
-    otpVerificationToken: string;
-    adminProvisioningToken?: string;
+    emailVerificationToken: string;
+    inviteToken?: string;
+    role?: string;
   }) => Promise<RegisterResult>;
   approveUser: (userId: string) => Promise<User>;
+  rejectUser: (userId: string) => Promise<void>;
+  updateUserStatus: (userId: string, status: string) => Promise<User>;
   logout: () => Promise<void>;
   switchUser: (userId: string) => Promise<void>;
   resetDemo: () => Promise<void>;
@@ -59,8 +61,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     init();
   }, []);
 
-  const login = async (email: string): Promise<User> => {
-    const loggedUser = await authService.login(email);
+  const login = async (email: string, password?: string, rememberMe?: boolean): Promise<User> => {
+    const loggedUser = await authService.login(email, password, rememberMe);
     setUser(loggedUser);
     await refreshUsers();
     return loggedUser;
@@ -70,14 +72,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     name: string;
     email: string;
     phone: string;
-    role: UserRole;
     password: string;
     department?: string;
-    otpVerificationToken: string;
-    adminProvisioningToken?: string;
+    emailVerificationToken: string;
+    inviteToken?: string;
+    role?: string;
   }): Promise<RegisterResult> => {
     const result = await authService.register(params);
-    // Note: User status is PENDING_APPROVAL, so we do not log them in automatically
     await refreshUsers();
     return result;
   };
@@ -87,6 +88,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const approved = await authService.approveUser(userId, user);
     await refreshUsers();
     return approved;
+  };
+
+  const rejectUser = async (userId: string): Promise<void> => {
+    if (!user) throw new Error('Must be authenticated to reject users');
+    await authService.rejectUser(userId, user.name);
+    await refreshUsers();
+  };
+
+  const updateUserStatus = async (userId: string, newStatus: string): Promise<User> => {
+    if (!user) throw new Error('Must be authenticated');
+    const updated = await authService.updateUserStatus(userId, newStatus, user.name);
+    await refreshUsers();
+    return updated;
   };
 
   const logout = async () => {
@@ -114,6 +128,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         register,
         approveUser,
+        rejectUser,
+        updateUserStatus,
         logout,
         switchUser,
         resetDemo,

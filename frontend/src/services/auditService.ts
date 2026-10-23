@@ -13,6 +13,14 @@ export interface AuditFilterParams {
 
 export const auditService = {
   async getAuditLogs(filters?: AuditFilterParams): Promise<AuditLog[]> {
+    try {
+      const res = await fetch('/api/audit');
+      if (res.ok) {
+        const liveLogs = await res.json();
+        localStorage.setItem('trustvault_audit_logs', JSON.stringify(liveLogs));
+      }
+    } catch {}
+
     let logs = getStoredAuditLogs();
 
     if (filters) {

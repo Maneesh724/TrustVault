@@ -5,6 +5,7 @@ import {
   getStoredUsers,
   appendStoredAuditLog,
 } from './storage';
+import { notificationService } from './notificationService';
 
 export const accessService = {
   async grantAccess(
@@ -82,6 +83,10 @@ export const accessService = {
     doc.updatedAt = new Date().toISOString();
     docs[docIndex] = doc;
     setStoredDocuments(docs);
+    notificationService.notifyUserAction('GRANT_CREATE', actor, doc.title, {
+      grantee: targetUser.name,
+      permission,
+    });
 
     appendStoredAuditLog({
       id: `audit-${Date.now()}`,
@@ -152,6 +157,9 @@ export const accessService = {
     doc.updatedAt = new Date().toISOString();
     docs[docIndex] = doc;
     setStoredDocuments(docs);
+    notificationService.notifyUserAction('GRANT_REVOKE', actor, doc.title, {
+      grantee: grant.userName,
+    });
 
     appendStoredAuditLog({
       id: `audit-${Date.now()}`,
@@ -198,6 +206,10 @@ export const accessService = {
     doc.grants[grantIndex] = grant;
     docs[docIndex] = doc;
     setStoredDocuments(docs);
+    notificationService.notifyUserAction('GRANT_UPDATE', actor, doc.title, {
+      grantee: grant.userName,
+      permission: newPermission,
+    });
 
     appendStoredAuditLog({
       id: `audit-${Date.now()}`,
