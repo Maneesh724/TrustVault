@@ -62,3 +62,5 @@ firebase.exe
 *.exe
 _backup_*/
 _backup_vault/
+.firebase/
+*.pyc

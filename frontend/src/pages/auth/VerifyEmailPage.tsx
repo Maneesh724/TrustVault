@@ -31,8 +31,6 @@ export const VerifyEmailPage: React.FC = () => {
 
   // Retrieve pending registration data cached in sessionStorage
   const pendingReg = JSON.parse(sessionStorage.getItem('trustvault_pending_reg') || 'null');
-  const [devOtp, setDevOtp] = useState<string | null>(pendingReg?.devOtp || null);
-  const [deliveryNotice, setDeliveryNotice] = useState<string | null>(pendingReg?.deliveryNotice || null);
 
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -40,10 +38,7 @@ export const VerifyEmailPage: React.FC = () => {
     if (pendingReg && pendingReg.email && !email) {
       setEmail(pendingReg.email);
     }
-    if (pendingReg?.devOtp && !devOtp) {
-      setDevOtp(pendingReg.devOtp);
-    }
-  }, [pendingReg, email, devOtp]);
+  }, [pendingReg, email]);
 
   // Cooldown countdown timer
   useEffect(() => {
@@ -83,26 +78,14 @@ export const VerifyEmailPage: React.FC = () => {
     setResending(true);
     setErrorMsg('');
     try {
-      const res = await authService.requestEmailOtp(email.trim().toLowerCase());
+      await authService.requestEmailOtp(email.trim().toLowerCase());
       setCooldown(60);
-      if (res.devOtp) {
-        setDevOtp(res.devOtp);
-      }
-      if (res.deliveryNotice) {
-        setDeliveryNotice(res.deliveryNotice);
-      }
-      showToast('New Code Sent', `Single-use OTP dispatched for ${email}.`, 'success');
+      showToast('New Code Sent', `Single-use OTP dispatched to ${email}. Check your inbox.`, 'success');
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to resend verification OTP.');
       showToast('Resend Error', err.message, 'error');
     } finally {
       setResending(false);
-    }
-  };
-
-  const handleAutoFillOtp = () => {
-    if (devOtp && devOtp.length === 6) {
-      setOtpDigits(devOtp.split(''));
     }
   };
 
@@ -177,31 +160,6 @@ export const VerifyEmailPage: React.FC = () => {
             Valid for 5 minutes.
           </p>
         </div>
-
-        {devOtp && (
-          <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-left space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 font-mono">
-                Verification Code
-              </span>
-              <button
-                type="button"
-                onClick={handleAutoFillOtp}
-                className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 transition-all cursor-pointer"
-              >
-                Auto-fill Code
-              </button>
-            </div>
-            <div className="text-2xl font-black font-mono tracking-widest text-emerald-300 text-center py-1">
-              {devOtp}
-            </div>
-            {deliveryNotice && (
-              <p className="text-[11px] text-slate-400 leading-snug">
-                {deliveryNotice}
-              </p>
-            )}
-          </div>
-        )}
 
         {errorMsg && (
           <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 flex items-start gap-2 text-left">

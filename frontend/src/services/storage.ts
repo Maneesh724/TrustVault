@@ -19,6 +19,16 @@ const STORAGE_KEYS = {
   CURRENT_USER_ID: 'trustvault_current_user_id',
 };
 
+// Purge any stale mock session IDs from previous sessions
+if (typeof window !== 'undefined') {
+  try {
+    const currentId = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
+    if (currentId === 'user-002' || currentId === 'user-001' || currentId === 'user-003') {
+      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER_ID);
+    }
+  } catch {}
+}
+
 // Obsolete mock emails to purge from client memory
 const LEGACY_MOCK_EMAILS = [
   'mike@trustvault.com',

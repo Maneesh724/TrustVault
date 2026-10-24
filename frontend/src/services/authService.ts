@@ -12,13 +12,8 @@ import { notificationService } from './notificationService';
 export interface SendOtpResponse {
   success: boolean;
   expiresInSeconds: number;
-  provider: string;
-  isDevelopmentMode: boolean;
-  developmentNotice?: string;
-  deliveryNotice?: string;
-  emailSent?: boolean;
-  devOtp?: string;
   maskedEmail?: string;
+  emailSent?: boolean;
 }
 
 export interface VerifyOtpResponse {
@@ -69,15 +64,7 @@ export const authService = {
       return data;
     } catch (err: any) {
       if (err.message?.includes('Failed to fetch')) {
-        return {
-          success: true,
-          expiresInSeconds: 300,
-          provider: 'Development Mode (Offline Test)',
-          isDevelopmentMode: true,
-          maskedEmail: email,
-          devOtp: '849201',
-          developmentNotice: '[DEVELOPMENT MODE] Server endpoint offline. Displaying test code: 849201.',
-        };
+        throw new Error('Unable to contact TrustVault authentication server. Please verify your connection.');
       }
       throw err;
     }
@@ -98,13 +85,6 @@ export const authService = {
       }
       return data;
     } catch (err: any) {
-      if (err.message?.includes('Failed to fetch') && otp === '849201') {
-        return {
-          success: true,
-          verificationToken: 'dev-email-token-offline-849201',
-          message: 'Email address verified successfully (Offline Test).',
-        };
-      }
       throw err;
     }
   },
@@ -126,15 +106,7 @@ export const authService = {
       return data;
     } catch (err: any) {
       if (err.message?.includes('Failed to fetch')) {
-        return {
-          success: true,
-          expiresInSeconds: 300,
-          provider: 'Development Mode (Offline Test)',
-          isDevelopmentMode: true,
-          devOtp: '742918',
-          developmentNotice:
-            '[DEVELOPMENT MODE] Server endpoint offline. Displaying local test OTP: 742918 (Valid for 5 minutes).',
-        };
+        throw new Error('Unable to contact mobile OTP server. Please verify your connection.');
       }
       throw err;
     }
@@ -153,13 +125,6 @@ export const authService = {
       }
       return data;
     } catch (err: any) {
-      if (err.message?.includes('Failed to fetch') && otp === '742918') {
-        return {
-          success: true,
-          verificationToken: 'dev-token-offline-742918',
-          message: 'Mobile number verified successfully (Offline Test).',
-        };
-      }
       throw err;
     }
   },
@@ -215,21 +180,13 @@ export const authService = {
       if (res.ok) {
         const data = await res.json();
         if (data.authenticated && data.user) {
-          setCurrentUserId(data.user.id);
           return data.user;
-        } else if (data.authenticated === false) {
-          clearCurrentUserId();
-          return null;
         }
       }
+      return null;
     } catch {
-      // fallback to storage
+      return null;
     }
-    const currentId = getCurrentUserId();
-    if (!currentId) return null;
-    const users = getStoredUsers();
-    const user = users.find((u) => u.id === currentId && u.status === 'ACTIVE');
-    return user || null;
   },
 
   async login(email: string, password: string, rememberMe: boolean = false): Promise<User> {

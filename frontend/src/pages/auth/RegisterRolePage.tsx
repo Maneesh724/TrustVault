@@ -122,16 +122,10 @@ export const RegisterRolePage: React.FC<RegisterRoleProps> = ({ role }) => {
           password,
           role,
           inviteToken: inviteToken || undefined,
-          devOtp: otpRes.devOtp,
-          emailSent: (otpRes as any).emailSent,
-          deliveryNotice: otpRes.deliveryNotice || otpRes.developmentNotice,
         })
       );
 
-      const successNotice = otpRes.devOtp
-        ? `Verification code generated: ${otpRes.devOtp}`
-        : `Verification code sent to ${email}`;
-      showToast('OTP Dispatched', successNotice, 'success');
+      showToast('OTP Dispatched', `Verification code sent to ${email}. Please check your inbox.`, 'success');
       navigate(`/verify-email?email=${encodeURIComponent(email.trim().toLowerCase())}&role=${role}`);
     } catch (err: any) {
       const msg = err.message || 'Registration failed. Please check your details.';

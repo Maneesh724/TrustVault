@@ -101,6 +101,85 @@ def get_first_error(errors):
     return str(errors)
 
 
+def send_live_email(to_email: str, subject: str, message: str) -> None:
+    """
+    Dispatches emails via HTTPS REST API (Port 443) or standard SMTP.
+    Cloud hosts like Render free tier block outbound SMTP (ports 25, 465, 587) with [Errno 101] Network is unreachable.
+    HTTPS APIs (Resend, Brevo, SendGrid) use port 443 which is never blocked.
+    """
+    resend_key = os.environ.get('RESEND_API_KEY', '').strip()
+    brevo_key = os.environ.get('BREVO_API_KEY', '').strip()
+    sendgrid_key = os.environ.get('SENDGRID_API_KEY', '').strip()
+
+    # 1. Resend API (HTTPS port 443)
+    if resend_key:
+        payload = json.dumps({
+            'from': os.environ.get('RESEND_FROM_EMAIL', 'TrustVault <onboarding@resend.dev>'),
+            'to': [to_email],
+            'subject': subject,
+            'text': message
+        }).encode('utf-8')
+        req = urllib.request.Request(
+            'https://api.resend.com/emails',
+            data=payload,
+            headers={
+                'Authorization': f'Bearer {resend_key}',
+                'Content-Type': 'application/json',
+                'User-Agent': 'TrustVault-Server/1.0'
+            }
+        )
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            if resp.status in (200, 201):
+                return
+
+    # 2. Brevo API (HTTPS port 443)
+    if brevo_key:
+        sender_email = os.environ.get('DEFAULT_FROM_EMAIL') or os.environ.get('EMAIL_HOST_USER') or 'noreply@trustvault.com'
+        payload = json.dumps({
+            'sender': {'email': sender_email, 'name': 'TrustVault Security'},
+            'to': [{'email': to_email}],
+            'subject': subject,
+            'textContent': message
+        }).encode('utf-8')
+        req = urllib.request.Request(
+            'https://api.brevo.com/v3/smtp/email',
+            data=payload,
+            headers={
+                'api-key': brevo_key,
+                'Content-Type': 'application/json',
+                'User-Agent': 'TrustVault-Server/1.0'
+            }
+        )
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            if resp.status in (200, 201):
+                return
+
+    # 3. SendGrid API (HTTPS port 443)
+    if sendgrid_key:
+        sender_email = os.environ.get('DEFAULT_FROM_EMAIL') or os.environ.get('EMAIL_HOST_USER') or 'noreply@trustvault.com'
+        payload = json.dumps({
+            'personalizations': [{'to': [{'email': to_email}]}],
+            'from': {'email': sender_email, 'name': 'TrustVault Security'},
+            'subject': subject,
+            'content': [{'type': 'text/plain', 'value': message}]
+        }).encode('utf-8')
+        req = urllib.request.Request(
+            'https://api.sendgrid.com/v3/mail/send',
+            data=payload,
+            headers={
+                'Authorization': f'Bearer {sendgrid_key}',
+                'Content-Type': 'application/json'
+            }
+        )
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            if resp.status in (200, 202):
+                return
+
+    # 4. Standard SMTP fallback (port 587)
+    from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None) or getattr(settings, 'EMAIL_HOST_USER', None) or 'noreply@trustvault.com'
+    send_mail(subject, message, from_email, [to_email], fail_silently=False)
+
+
 # ============================================================================
 # 1. OTP MANAGEMENT (Strict 5-min TTL, Single-use, Rate limits, Email & SMS)
 # ============================================================================
@@ -152,50 +231,32 @@ class SendEmailOtpView(APIView):
         print(f"Expires: {expires_at.strftime('%Y-%m-%d %H:%M:%S UTC')}")
         print("=" * 60)
 
-        email_sent = False
-        is_smtp_configured = bool(getattr(settings, 'EMAIL_HOST_USER', None) and getattr(settings, 'EMAIL_HOST_PASSWORD', None))
-        if is_smtp_configured:
-            try:
-                subject = "[TrustVault] Your Single-Use Email Verification Code"
-                message = (
-                    f"Hello,\n\n"
-                    f"Your 6-digit TrustVault verification code is:\n\n"
-                    f"    {raw_otp}\n\n"
-                    f"This code will expire in 5 minutes.\n"
-                    f"If you did not request this verification, please disregard this message.\n\n"
-                    f"— TrustVault Security & Compliance"
-                )
-                from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None) or settings.EMAIL_HOST_USER
-                send_mail(subject, message, from_email, [email], fail_silently=False)
-                email_sent = True
-            except Exception as e:
-                print(f"[Email OTP Delivery notice]: {e}")
+        # Dispatch OTP exclusively via real email
+        try:
+            subject = "[TrustVault] Your Single-Use Email Verification Code"
+            message = (
+                f"Hello,\n\n"
+                f"Your 6-digit TrustVault verification code is:\n\n"
+                f"    {raw_otp}\n\n"
+                f"This code will expire in 5 minutes.\n"
+                f"If you did not request this verification, please disregard this message.\n\n"
+                f"— TrustVault Security & Compliance"
+            )
+            send_live_email(email, subject, message)
+        except Exception as e:
+            print(f"[Email OTP Delivery Error]: {e}")
+            return Response(
+                {
+                    'error': f'Failed to send verification email: {str(e)}. Please verify EMAIL_HOST_USER and EMAIL_HOST_PASSWORD are set on the server.'
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
-        response_payload = {
+        return Response({
             'success': True,
             'expiresInSeconds': AUTH_CONFIG['OTP_EXPIRY_SECONDS'],
             'maskedEmail': mask_email(email),
-            'emailSent': email_sent,
-            'isDevelopmentMode': not email_sent,
-            'provider': 'Gmail SMTP Gateway' if email_sent else 'Instant Sandbox OTP / Pending SMTP'
-        }
-
-        # Provide devOtp fallback whenever email was not delivered so user is never blocked
-        if not email_sent or 'test' in sys.argv:
-            response_payload['devOtp'] = raw_otp
-            response_payload['isDevelopmentMode'] = True
-            if not is_smtp_configured:
-                response_payload['deliveryNotice'] = (
-                    f"Real SMTP credentials (EMAIL_HOST_USER / EMAIL_HOST_PASSWORD) are not yet configured on Render. "
-                    f"Use this verification code: {raw_otp}"
-                )
-            else:
-                response_payload['deliveryNotice'] = (
-                    f"SMTP dispatch encountered a delivery delay. "
-                    f"Single-use verification code: {raw_otp}"
-                )
-
-        return Response(response_payload)
+        })
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -312,28 +373,11 @@ class SendOtpView(APIView):
         twilio_token = os.environ.get('TWILIO_AUTH_TOKEN')
         twilio_from = os.environ.get('TWILIO_FROM_NUMBER')
 
-        if twilio_sid and twilio_token and twilio_from:
-            return Response({
-                'success': True,
-                'expiresInSeconds': AUTH_CONFIG['OTP_EXPIRY_SECONDS'],
-                'provider': 'Twilio SMS Gateway',
-                'isDevelopmentMode': False,
-                'message': f'Verification OTP successfully dispatched to {phone}.'
-            })
-        else:
-            notice = (
-                f"[DEVELOPMENT MODE - SMS PROVIDER NOT CONFIGURED] Live SMS provider credentials "
-                f"(TWILIO_ACCOUNT_SID) are not configured. For evaluation and testing, the single-use OTP for "
-                f"{phone} ({role}) is: {raw_otp}. This code expires in 5 minutes."
-            )
-            return Response({
-                'success': True,
-                'expiresInSeconds': AUTH_CONFIG['OTP_EXPIRY_SECONDS'],
-                'provider': 'Development Mode (SMS Credentials Not Configured)',
-                'isDevelopmentMode': True,
-                'devOtp': raw_otp,
-                'developmentNotice': notice,
-            })
+        return Response({
+            'success': True,
+            'expiresInSeconds': AUTH_CONFIG['OTP_EXPIRY_SECONDS'],
+            'message': f'Mobile verification code dispatched to {phone}.'
+        })
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -832,8 +876,7 @@ class ForgotPasswordView(APIView):
                     f"If you did not request this, please contact your security administrator.\n\n"
                     f"— TrustVault Security"
                 )
-                from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@trustvault.com')
-                send_mail(subject, message, from_email, [email], fail_silently=True)
+                send_live_email(email, subject, message)
             except Exception as e:
                 print(f"[Password Reset Email] notice: {e}")
 

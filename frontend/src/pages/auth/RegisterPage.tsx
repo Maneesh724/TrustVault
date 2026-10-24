@@ -76,7 +76,6 @@ export const RegisterPage: React.FC = () => {
   const [emailOtpVerifying, setEmailOtpVerifying] = useState(false);
   const [emailOtpError, setEmailOtpError] = useState('');
   const [emailCooldown, setEmailCooldown] = useState(0);
-  const [devOtpDisplay, setDevOtpDisplay] = useState('');
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Check invitation token on mount
@@ -111,7 +110,6 @@ export const RegisterPage: React.FC = () => {
     setEmailOtpDigits(['', '', '', '', '', '']);
     setEmailOtpToken('');
     setEmailOtpError('');
-    setDevOtpDisplay('');
   }, [email]);
 
   // Password strength calculation
@@ -164,7 +162,6 @@ export const RegisterPage: React.FC = () => {
       setEmailCooldown(60);
       setEmailOtpDigits(['', '', '', '', '', '']);
       setEmailOtpVerified(false);
-      if (res.devOtp) setDevOtpDisplay(res.devOtp);
       showToast('OTP Sent', `Verification code sent to ${email}`, 'success');
       setTimeout(() => otpInputRefs.current[0]?.focus(), 100);
     } catch (err: any) {
@@ -536,11 +533,6 @@ export const RegisterPage: React.FC = () => {
                   {/* OTP Entry Panel */}
                   {emailOtpSent && !emailOtpVerified && (
                     <div className="mt-3 p-4 rounded-2xl bg-purple-950/30 border border-purple-500/30 space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
-                      {devOtpDisplay && (
-                        <div className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2 font-mono">
-                          [DEV MODE] Test OTP: <span className="font-bold tracking-widest text-amber-200">{devOtpDisplay}</span>
-                        </div>
-                      )}
                       <p className="text-xs text-slate-300">Enter the 6-digit code sent to <span className="text-white font-semibold">{email}</span></p>
                       <div className="flex gap-2 justify-center" onPaste={handleOtpPaste}>
                         {emailOtpDigits.map((digit, idx) => (

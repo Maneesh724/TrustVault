@@ -20,7 +20,6 @@ export const ForgotPasswordPage: React.FC = () => {
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [devTokenNotice, setDevTokenNotice] = useState<string | null>(null);
 
   // Handle Request Reset Token
   const handleRequestReset = async (e: React.FormEvent) => {
@@ -37,11 +36,6 @@ export const ForgotPasswordPage: React.FC = () => {
       const res = await authService.requestPasswordReset(email.trim().toLowerCase());
       showToast('Instructions Sent', 'If an eligible account matches this email, reset instructions have been issued.', 'info');
       
-      // If dev token is provided by offline backend test mode
-      if ((res as any).devResetToken) {
-        setResetToken((res as any).devResetToken);
-        setDevTokenNotice((res as any).devResetToken);
-      }
       setStep('reset');
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to process recovery request.');
@@ -198,18 +192,6 @@ export const ForgotPasswordPage: React.FC = () => {
                   Enter the recovery token issued for <span className="font-semibold text-white">{email}</span> and establish your new master password.
                 </p>
               </div>
-
-              {devTokenNotice && (
-                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs space-y-1">
-                  <div className="font-semibold">Local Test Mode:</div>
-                  <p>
-                    Token:{' '}
-                    <span className="font-mono font-bold text-white bg-amber-950/80 px-2 py-0.5 rounded border border-amber-600/50 break-all">
-                      {devTokenNotice}
-                    </span>
-                  </p>
-                </div>
-              )}
 
               {errorMsg && (
                 <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-start gap-2.5 text-xs text-rose-300">
