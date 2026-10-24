@@ -62,7 +62,7 @@ export const ViewerDashboardPage: React.FC = () => {
       window.document.body.appendChild(link);
       link.click();
       window.document.body.removeChild(link);
-      showToast('Download Delivered', `Decrypted copy delivered.`, 'success');
+      showToast('Download Ready', `Downloading "${res.filename}"...`, 'success');
     } catch (err: any) {
       showToast('Permission Denied', err.message || 'Download permission not granted.', 'error');
     }
@@ -94,8 +94,8 @@ export const ViewerDashboardPage: React.FC = () => {
 
       {/* 5 Summary Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
-        <div className="p-4 sm:p-5 rounded-2xl bg-[#0B101D] border border-[#161F33] text-left shadow-lg">
-          <div className="w-10 h-10 rounded-full bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400 mb-3">
+        <div className="p-4 sm:p-5 rounded-2xl bg-[#0B101D] border border-[#161F33] hover:border-emerald-500/50 hover:bg-[#0E1826] transition-all duration-300 text-left shadow-lg card-hover-glow group">
+          <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-3 group-hover:scale-110 transition-transform">
             <FileText className="w-5 h-5" />
           </div>
           <span className="text-xs font-medium text-slate-400 block">Accessible Docs</span>
@@ -105,8 +105,8 @@ export const ViewerDashboardPage: React.FC = () => {
           <span className="text-[10px] text-emerald-400 font-semibold mt-1 block">Active grants</span>
         </div>
 
-        <div className="p-4 sm:p-5 rounded-2xl bg-[#0B101D] border border-[#161F33] text-left shadow-lg">
-          <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-3">
+        <div className="p-4 sm:p-5 rounded-2xl bg-[#0B101D] border border-[#161F33] hover:border-emerald-500/50 hover:bg-[#0E1826] transition-all duration-300 text-left shadow-lg card-hover-glow group">
+          <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-3 group-hover:scale-110 transition-transform">
             <Eye className="w-5 h-5" />
           </div>
           <span className="text-xs font-medium text-slate-400 block">Recently Shared</span>
@@ -116,8 +116,8 @@ export const ViewerDashboardPage: React.FC = () => {
           <span className="text-[10px] text-emerald-400 font-semibold mt-1 block">Last 7 days</span>
         </div>
 
-        <div className="p-4 sm:p-5 rounded-2xl bg-[#0B101D] border border-[#161F33] text-left shadow-lg">
-          <div className="w-10 h-10 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-3">
+        <div className="p-4 sm:p-5 rounded-2xl bg-[#0B101D] border border-[#161F33] hover:border-amber-500/50 hover:bg-[#15141E] transition-all duration-300 text-left shadow-lg card-hover-glow group">
+          <div className="w-10 h-10 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-3 group-hover:scale-110 transition-transform">
             <Clock className="w-5 h-5" />
           </div>
           <span className="text-xs font-medium text-slate-400 block">Expiring Soon</span>
@@ -127,8 +127,8 @@ export const ViewerDashboardPage: React.FC = () => {
           <span className="text-[10px] text-amber-400 font-semibold mt-1 block">Time-bounded</span>
         </div>
 
-        <div className="p-4 sm:p-5 rounded-2xl bg-[#0B101D] border border-[#161F33] text-left shadow-lg">
-          <div className="w-10 h-10 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 mb-3">
+        <div className="p-4 sm:p-5 rounded-2xl bg-[#0B101D] border border-[#161F33] hover:border-purple-500/50 hover:bg-[#141026] transition-all duration-300 text-left shadow-lg card-hover-glow group">
+          <div className="w-10 h-10 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 mb-3 group-hover:scale-110 transition-transform">
             <Activity className="w-5 h-5" />
           </div>
           <span className="text-xs font-medium text-slate-400 block">Recent Access</span>
@@ -138,8 +138,8 @@ export const ViewerDashboardPage: React.FC = () => {
           <span className="text-[10px] text-emerald-400 font-semibold mt-1 block">Audit verified</span>
         </div>
 
-        <div className="p-4 sm:p-5 rounded-2xl bg-[#0B101D] border border-[#161F33] text-left shadow-lg col-span-2 sm:col-span-1">
-          <div className="w-10 h-10 rounded-full bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400 mb-3">
+        <div className="p-4 sm:p-5 rounded-2xl bg-[#0B101D] border border-[#161F33] hover:border-rose-500/50 hover:bg-[#1C1119] transition-all duration-300 text-left shadow-lg col-span-2 sm:col-span-1 card-hover-glow group">
+          <div className="w-10 h-10 rounded-full bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400 mb-3 group-hover:scale-110 transition-transform">
             <Bell className="w-5 h-5" />
           </div>
           <span className="text-xs font-medium text-slate-400 block">Notifications</span>
@@ -198,7 +198,8 @@ export const ViewerDashboardPage: React.FC = () => {
               ) : (
                 filteredDocs.map((doc) => {
                   const grant = doc.grants?.find((g) => g.userId === user?.id);
-                  const canDownload = grant?.permission === 'ADMIN' || doc.classification === 'PUBLIC';
+                  const canDownload = !doc.downloadRestricted || grant?.permission === 'EDIT' || doc.classification === 'PUBLIC';
+                  const canEdit = grant?.permission === 'EDIT';
 
                   return (
                     <tr key={doc.id} className="hover:bg-slate-900/40 transition-colors">
@@ -215,7 +216,11 @@ export const ViewerDashboardPage: React.FC = () => {
                       </td>
                       <td className="py-3.5 px-4 text-slate-300">{doc.ownerName}</td>
                       <td className="py-3.5 px-4">
-                        <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                        <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                          grant?.permission === 'EDIT'
+                            ? 'bg-purple-500/15 text-purple-400 border-purple-500/30'
+                            : 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                        }`}>
                           {grant?.permission || 'READ'}
                         </span>
                       </td>
@@ -229,12 +234,20 @@ export const ViewerDashboardPage: React.FC = () => {
                             className="px-3 py-1 rounded-md text-xs font-semibold bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 border border-emerald-500/30 flex items-center gap-1 cursor-pointer"
                           >
                             <Eye className="w-3.5 h-3.5" />
-                            <span>View</span>
+                            <span>Read</span>
                           </button>
+                          {canEdit && (
+                            <Link
+                              to={`/viewer/documents/${doc.id}`}
+                              className="px-3 py-1 rounded-md text-xs font-semibold bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 border border-purple-500/30 flex items-center gap-1 cursor-pointer"
+                            >
+                              <span>Edit</span>
+                            </Link>
+                          )}
                           {canDownload && (
                             <button
                               onClick={() => handleDownload(doc)}
-                              className="px-3 py-1 rounded-md text-xs font-semibold bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 border border-cyan-500/30 flex items-center gap-1 cursor-pointer"
+                              className="px-3 py-1 rounded-md text-xs font-semibold bg-teal-500/20 text-teal-400 hover:bg-teal-500/30 border border-teal-500/30 flex items-center gap-1 cursor-pointer"
                             >
                               <Download className="w-3.5 h-3.5" />
                               <span>Download</span>

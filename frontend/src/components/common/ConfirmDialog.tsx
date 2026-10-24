@@ -27,25 +27,25 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 }) => {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={title} maxWidth="md">
-      <div className="flex items-start gap-3 mt-1">
+      <div className="flex items-start gap-3 mt-1 text-slate-200">
         <div
           className={`p-2 rounded-xl shrink-0 ${
-            danger ? 'bg-rose-50 text-rose-600 border border-rose-200' : 'bg-amber-50 text-amber-600 border border-amber-200'
+            danger ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30' : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
           }`}
         >
           <AlertTriangle className="w-5 h-5" />
         </div>
         <div>
-          <p className="text-sm text-slate-700 leading-relaxed">{message}</p>
+          <p className="text-sm text-slate-300 leading-relaxed">{message}</p>
         </div>
       </div>
 
-      <div className="mt-6 flex items-center justify-end gap-2.5 pt-4 border-t border-slate-200">
+      <div className="mt-6 flex items-center justify-end gap-2.5 pt-4 border-t border-[#1E293B]">
         <button
           type="button"
           onClick={onClose}
           disabled={isLoading}
-          className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 transition-colors"
+          className="px-4 py-2 text-xs font-semibold rounded-xl border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700 transition-colors cursor-pointer"
         >
           {cancelText}
         </button>
@@ -53,10 +53,10 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           type="button"
           onClick={onConfirm}
           disabled={isLoading}
-          className={`px-4 py-2 text-xs font-semibold rounded-xl transition-all shadow-sm ${
+          className={`px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer ${
             danger
-              ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-500/20'
-              : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'
+              ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-rose-500/20'
+              : 'bg-emerald-600 hover:bg-emerald-500 text-slate-950 shadow-emerald-500/20'
           }`}
         >
           {isLoading ? 'Processing...' : confirmText}

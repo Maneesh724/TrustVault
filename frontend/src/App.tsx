@@ -1,5 +1,5 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { AppLayout } from './components/layout/AppLayout';
@@ -7,6 +7,7 @@ import { AppLayout } from './components/layout/AppLayout';
 // Public & Auth Pages
 import { LandingPage } from './pages/landing/LandingPage';
 import { LoginPage } from './pages/auth/LoginPage';
+import { RegisterChooseRolePage } from './pages/auth/RegisterChooseRolePage';
 import { RegisterRolePage } from './pages/auth/RegisterRolePage';
 import { VerifyEmailPage } from './pages/auth/VerifyEmailPage';
 import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage';
@@ -24,6 +25,7 @@ import { ViewerDashboardPage } from './pages/viewer/ViewerDashboardPage';
 import { DocumentLibraryPage } from './pages/documents/DocumentLibraryPage';
 import { DocumentDetailPage } from './pages/documents/DocumentDetailPage';
 import { SharedDocumentsPage } from './pages/documents/SharedDocumentsPage';
+import { OwnerSharingHistoryPage } from './pages/documents/OwnerSharingHistoryPage';
 import { AuditTrailPage } from './pages/audit/AuditTrailPage';
 import { SecurityCenterPage } from './pages/security/SecurityCenterPage';
 import { ProfileSettingsPage } from './pages/settings/ProfileSettingsPage';
@@ -74,18 +76,61 @@ const ProtectedRoute: React.FC<{
   return <>{children}</>;
 };
 
+// Dynamic Browser Tab Title Handler with branding and descriptive metadata
+const PageTitleHandler: React.FC = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    const path = location.pathname;
+    let title = 'TrustVault | Secure Documents. Trusted Access.';
+
+    if (path === '/') title = 'TrustVault | Zero-Trust Enterprise Document Vault';
+    else if (path === '/login') title = 'TrustVault | Secure Sign In';
+    else if (path === '/register') title = 'TrustVault | Choose Account Role';
+    else if (path === '/register/owner') title = 'TrustVault | Register Document Owner';
+    else if (path === '/register/viewer') title = 'TrustVault | Register Viewer';
+    else if (path === '/verify-email') title = 'TrustVault | Verify Corporate Email';
+    else if (path === '/forgot-password') title = 'TrustVault | Password Recovery';
+    else if (path.startsWith('/reset-password')) title = 'TrustVault | Reset Password';
+    else if (path === '/owner/pending-approval') title = 'TrustVault | Pending Administrator Approval';
+    // Admin routes
+    else if (path === '/admin/dashboard' || path === '/admin') title = 'TrustVault | Admin Dashboard';
+    else if (path === '/admin/approvals') title = 'TrustVault | Owner Approvals';
+    else if (path === '/admin/users') title = 'TrustVault | User Management Directory';
+    else if (path === '/admin/documents') title = 'TrustVault | Global Document Oversight';
+    else if (path === '/admin/audit-logs') title = 'TrustVault | Security Audit Logs';
+    else if (path === '/admin/security') title = 'TrustVault | Security Events & Policies';
+    else if (path === '/admin/settings') title = 'TrustVault | System Settings';
+    // Owner routes
+    else if (path === '/owner/dashboard' || path === '/owner') title = 'TrustVault | Owner Dashboard';
+    else if (path === '/owner/documents') title = 'TrustVault | My Documents';
+    else if (path.startsWith('/owner/sharing')) title = 'TrustVault | Document Sharing';
+    else if (path === '/owner/access-history') title = 'TrustVault | Access History';
+    else if (path === '/owner/settings') title = 'TrustVault | Owner Settings';
+    // Viewer routes
+    else if (path === '/viewer/dashboard' || path === '/viewer') title = 'TrustVault | Viewer Dashboard';
+    else if (path === '/viewer/shared') title = 'TrustVault | Shared With Me';
+    else if (path === '/viewer/profile') title = 'TrustVault | Profile & Security';
+
+    document.title = title;
+  }, [location.pathname]);
+
+  return null;
+};
+
 export const App: React.FC = () => {
   return (
     <ToastProvider>
       <AuthProvider>
         <BrowserRouter>
+          <PageTitleHandler />
           <Routes>
             {/* ========================================================= */}
             {/* 1. PUBLIC ROUTES                                          */}
             {/* ========================================================= */}
             <Route path="/" element={<RoleBasedLanding />} />
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<Navigate to="/register/owner" replace />} />
+            <Route path="/register" element={<RegisterChooseRolePage />} />
             <Route path="/register/owner" element={<RegisterRolePage role="OWNER" />} />
             <Route path="/register/viewer" element={<RegisterRolePage role="VIEWER" />} />
             <Route path="/verify-email" element={<VerifyEmailPage />} />
@@ -134,10 +179,10 @@ export const App: React.FC = () => {
               <Route path="documents/upload" element={<DocumentLibraryPage />} />
               <Route path="documents/:documentId" element={<DocumentDetailPage />} />
               <Route path="folders" element={<OwnerDashboardPage />} />
-              <Route path="sharing" element={<SharedDocumentsPage />} />
-              <Route path="sharing/new" element={<SharedDocumentsPage />} />
-              <Route path="sharing/:shareId" element={<SharedDocumentsPage />} />
-              <Route path="access-history" element={<AuditTrailPage />} />
+              <Route path="sharing" element={<OwnerSharingHistoryPage />} />
+              <Route path="sharing/new" element={<OwnerSharingHistoryPage />} />
+              <Route path="sharing/:shareId" element={<OwnerSharingHistoryPage />} />
+              <Route path="access-history" element={<OwnerSharingHistoryPage />} />
               <Route path="notifications" element={<OwnerDashboardPage />} />
               <Route path="profile" element={<ProfileSettingsPage />} />
               <Route path="settings" element={<ProfileSettingsPage />} />
@@ -157,12 +202,12 @@ export const App: React.FC = () => {
             >
               <Route index element={<Navigate to="/viewer/dashboard" replace />} />
               <Route path="dashboard" element={<ViewerDashboardPage />} />
-              <Route path="shared" element={<ViewerDashboardPage />} />
-              <Route path="shared/:shareId" element={<ViewerDashboardPage />} />
+              <Route path="shared" element={<SharedDocumentsPage />} />
+              <Route path="shared/:shareId" element={<SharedDocumentsPage />} />
               <Route path="documents/:documentId" element={<DocumentDetailPage />} />
               <Route path="recent" element={<ViewerDashboardPage />} />
               <Route path="notifications" element={<ViewerDashboardPage />} />
-              <Route path="activity" element={<AuditTrailPage />} />
+              <Route path="activity" element={<SharedDocumentsPage />} />
               <Route path="profile" element={<ProfileSettingsPage />} />
             </Route>
 

@@ -121,46 +121,46 @@ export const AiAssistantPage: React.FC = () => {
   return (
     <div className="space-y-6 animate-in fade-in duration-300 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-slate-200">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-[#161F33]">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+            <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
               Role-Scoped Zero-Trust Intelligence
             </span>
           </div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">AI Security Assistant</h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+          <h1 className="text-2xl font-bold text-white tracking-tight">AI Security Assistant</h1>
+          <p className="text-xs sm:text-sm text-slate-400 mt-0.5">
             Real-time security analytics, permission evaluation, and threat posture intelligence scoped strictly to your credentials.
           </p>
         </div>
 
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-xs text-slate-600">
-          <Lock className="w-3.5 h-3.5 text-slate-500" />
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#0B101D] border border-[#161F33] text-xs text-slate-300">
+          <Lock className="w-3.5 h-3.5 text-emerald-400" />
           <span>
-            Scope: <strong className="text-slate-900">{user.role === 'ADMIN' ? 'System-Wide Platform' : 'Personal Documents & Shares'}</strong>
+            Scope: <strong className="text-emerald-300">{user.role === 'ADMIN' ? 'System-Wide Platform' : 'Personal Documents & Shares'}</strong>
           </span>
         </div>
       </div>
 
       {/* Main Chat Box */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[580px] overflow-hidden">
+      <div className="bg-[#0B101D] rounded-2xl border border-[#161F33] shadow-xl flex flex-col h-[580px] overflow-hidden card-hover-glow">
         {/* Messages Scroll Area */}
-        <div className="flex-1 p-6 overflow-y-auto space-y-4 bg-slate-50/50">
+        <div className="flex-1 p-6 overflow-y-auto space-y-4 bg-[#080D1A]">
           {/* Welcome Intro Card */}
-          <div className="p-4 rounded-2xl bg-blue-50/60 border border-blue-100 flex items-start gap-3.5 max-w-2xl">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-sm">
+          <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-start gap-3.5 max-w-2xl">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-slate-950 shrink-0 shadow-lg shadow-emerald-500/20">
               <Bot className="w-5 h-5" />
             </div>
-            <div className="text-xs text-slate-700 space-y-1.5">
-              <div className="font-bold text-slate-900 text-sm flex items-center gap-1.5">
+            <div className="text-xs text-slate-300 space-y-1.5">
+              <div className="font-bold text-white text-sm flex items-center gap-1.5">
                 <span>TrustVault Security Engine</span>
-                <span className="px-2 py-0.5 text-[10px] rounded bg-blue-100 text-blue-700 font-semibold uppercase">
+                <span className="px-2 py-0.5 text-[10px] rounded bg-emerald-500/20 text-emerald-300 font-semibold uppercase border border-emerald-500/30">
                   Active Guard
                 </span>
               </div>
               <p className="leading-relaxed">
-                Hello <strong>{user.name}</strong>. I am your automated Zero-Trust Security Assistant. I synthesize real-time
+                Hello <strong className="text-white">{user.name}</strong>. I am your automated Zero-Trust Security Assistant. I synthesize real-time
                 database records, permission policies, and cryptographic audit trails to answer security questions without exposing
                 unauthorized data.
               </p>
@@ -174,36 +174,36 @@ export const AiAssistantPage: React.FC = () => {
               className={`flex items-start gap-3 ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               {msg.sender === 'assistant' && (
-                <div className="w-8 h-8 rounded-xl bg-slate-900 flex items-center justify-center text-white shrink-0 mt-0.5">
-                  <Bot className="w-4 h-4 text-cyan-400" />
+                <div className="w-8 h-8 rounded-xl bg-[#0D1526] border border-[#1E293B] flex items-center justify-center text-white shrink-0 mt-0.5 shadow">
+                  <Bot className="w-4 h-4 text-emerald-400" />
                 </div>
               )}
 
               <div
                 className={`max-w-xl rounded-2xl p-4 text-xs sm:text-sm leading-relaxed ${
                   msg.sender === 'user'
-                    ? 'bg-blue-600 text-white rounded-tr-none shadow-sm'
-                    : 'bg-white border border-slate-200/80 text-slate-800 rounded-tl-none shadow-sm'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-semibold rounded-tr-none shadow-lg shadow-emerald-500/10'
+                    : 'bg-[#0D1322] border border-[#1E293B] text-slate-200 rounded-tl-none shadow'
                 }`}
               >
                 {/* Assistant missing key notice */}
                 {msg.sender === 'assistant' && msg.configured === false ? (
                   <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-amber-600 font-semibold text-xs">
+                    <div className="flex items-center gap-2 text-amber-400 font-semibold text-xs">
                       <AlertTriangle className="w-4 h-4 shrink-0" />
                       <span>AI Engine In Standby (Missing Server API Key)</span>
                     </div>
-                    <p className="text-xs text-slate-600 leading-relaxed">{msg.text}</p>
-                    <div className="p-3 rounded-xl bg-slate-900 text-slate-200 font-mono text-xs space-y-1.5">
+                    <p className="text-xs text-slate-300 leading-relaxed">{msg.text}</p>
+                    <div className="p-3 rounded-xl bg-[#050811] border border-[#161F33] text-slate-200 font-mono text-xs space-y-1.5">
                       <div className="flex items-center gap-1.5 text-slate-400 text-[11px]">
-                        <Terminal className="w-3.5 h-3.5" />
+                        <Terminal className="w-3.5 h-3.5 text-teal-400" />
                         <span>Required Server Configuration:</span>
                       </div>
                       <div className="text-emerald-400">
                         {msg.missingKey || 'GEMINI_API_KEY'}=&lt;your_real_api_key&gt;
                       </div>
                       <div className="text-[11px] text-slate-400 pt-1">
-                        Add this variable to <code className="text-cyan-300">backend/.env</code> and restart the Django backend to enable live model inference.
+                        Add this variable to <code className="text-teal-300">backend/.env</code> and restart the Django backend to enable live model inference.
                       </div>
                     </div>
                   </div>
@@ -213,7 +213,7 @@ export const AiAssistantPage: React.FC = () => {
 
                 <div
                   className={`text-[10px] mt-1.5 font-mono ${
-                    msg.sender === 'user' ? 'text-blue-100 text-right' : 'text-slate-400 flex items-center justify-between'
+                    msg.sender === 'user' ? 'text-slate-900/70 text-right' : 'text-slate-500 flex items-center justify-between'
                   }`}
                 >
                   {msg.sender === 'assistant' && msg.model && (
@@ -224,7 +224,7 @@ export const AiAssistantPage: React.FC = () => {
               </div>
 
               {msg.sender === 'user' && (
-                <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white shrink-0 mt-0.5 text-xs font-bold">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-slate-950 shrink-0 mt-0.5 text-xs font-bold shadow-md shadow-emerald-500/20">
                   {user.name.charAt(0)}
                 </div>
               )}
@@ -233,10 +233,10 @@ export const AiAssistantPage: React.FC = () => {
 
           {loading && (
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-slate-900 flex items-center justify-center text-white shrink-0">
-                <RefreshCw className="w-4 h-4 text-blue-400 animate-spin" />
+              <div className="w-8 h-8 rounded-xl bg-[#0D1526] border border-[#1E293B] flex items-center justify-center text-white shrink-0">
+                <RefreshCw className="w-4 h-4 text-emerald-400 animate-spin" />
               </div>
-              <div className="bg-white border border-slate-200/80 rounded-2xl rounded-tl-none px-4 py-3 text-xs text-slate-500 shadow-sm flex items-center gap-2">
+              <div className="bg-[#0D1322] border border-[#1E293B] rounded-2xl rounded-tl-none px-4 py-3 text-xs text-slate-400 shadow-sm flex items-center gap-2">
                 <span>Evaluating zero-trust authorization context & querying AI model...</span>
               </div>
             </div>
@@ -245,7 +245,7 @@ export const AiAssistantPage: React.FC = () => {
 
         {/* Suggested Prompt Chips */}
         {messages.length === 0 && (
-          <div className="p-4 bg-white border-t border-slate-100">
+          <div className="p-4 bg-[#0B101D] border-t border-[#161F33]">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 block mb-2">
               Recommended Inquiries for {user.role === 'ADMIN' ? 'Administrator' : 'Document Owner'}:
             </span>
@@ -255,7 +255,7 @@ export const AiAssistantPage: React.FC = () => {
                   key={idx}
                   type="button"
                   onClick={() => handleSendMessage(prompt)}
-                  className="text-xs px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 border border-slate-200 text-slate-700 transition-colors text-left"
+                  className="text-xs px-3 py-1.5 rounded-xl bg-[#080D1A] hover:bg-emerald-500/10 hover:text-emerald-300 hover:border-emerald-500/40 border border-[#161F33] text-slate-300 transition-colors text-left"
                 >
                   "{prompt}"
                 </button>
@@ -265,7 +265,7 @@ export const AiAssistantPage: React.FC = () => {
         )}
 
         {/* Input Bar */}
-        <div className="p-4 bg-white border-t border-slate-200">
+        <div className="p-4 bg-[#0B101D] border-t border-[#161F33]">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -279,20 +279,20 @@ export const AiAssistantPage: React.FC = () => {
               value={inputQuery}
               onChange={(e) => setInputQuery(e.target.value)}
               disabled={loading}
-              className="flex-1 px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600 focus:bg-white transition-all disabled:opacity-60"
+              className="flex-1 px-4 py-3 bg-[#080D1A] border border-[#161F33] rounded-xl text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all disabled:opacity-60"
             />
             <button
               type="submit"
               disabled={loading || !inputQuery.trim()}
-              className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow-sm transition-colors flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+              className="px-5 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-semibold text-sm shadow-lg shadow-emerald-500/20 transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
             >
-              <Send className="w-4 h-4" />
+              <Send className="w-4 h-4 text-slate-950" />
               <span>Ask</span>
             </button>
           </form>
           <div className="flex items-center justify-between text-[11px] text-slate-400 mt-2 px-1">
             <span>Only real database records scoped to your role are provided as context.</span>
-            <span className="font-mono">Zero-Trust Anti-Hallucination Policy</span>
+            <span className="font-mono text-emerald-400">Zero-Trust Anti-Hallucination Policy</span>
           </div>
         </div>
       </div>

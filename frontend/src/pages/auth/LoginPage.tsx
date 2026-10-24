@@ -90,17 +90,17 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0D14] flex items-center justify-center p-4 sm:p-6 lg:p-8 font-sans selection:bg-emerald-500/30 selection:text-emerald-200 relative overflow-hidden">
+    <div className="login-page min-h-screen bg-[#0A0D14] flex items-center justify-center p-4 sm:p-6 lg:p-8 font-sans selection:bg-emerald-500/30 selection:text-emerald-200 relative overflow-hidden">
       
       {/* Background Ambient Glow Orbs */}
-      <div className="absolute top-1/4 -left-48 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none animate-pulse" />
-      <div className="absolute bottom-1/4 -right-48 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="login-orb login-orb-blue absolute top-1/4 -left-48 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none animate-pulse" />
+      <div className="login-orb login-orb-indigo absolute bottom-1/4 -right-48 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Main Split Authentication Container */}
-      <div className="w-full max-w-4xl bg-[#101522] rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row border border-emerald-950/40 relative z-10 backdrop-blur-md">
+      <div className="login-card w-full max-w-4xl bg-[#101522] rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row border border-emerald-950/40 relative z-10 backdrop-blur-md">
         
         {/* Left Side: Dark Charcoal & Emerald Brand Panel */}
-        <div className="w-full md:w-[48%] bg-gradient-to-b from-[#0D121F] via-[#101726] to-[#0A0D14] p-8 sm:p-10 lg:p-12 text-white flex flex-col justify-between relative overflow-hidden border-b md:border-b-0 md:border-r border-emerald-950/30">
+        <div className="login-brand-panel w-full md:w-[48%] bg-gradient-to-b from-[#0D121F] via-[#101726] to-[#0A0D14] p-8 sm:p-10 lg:p-12 text-white flex flex-col justify-between relative overflow-hidden border-b md:border-b-0 md:border-r border-emerald-950/30">
           
           {/* Subtle interior glow */}
           <div className="absolute -top-24 -left-24 w-80 h-80 bg-emerald-500/15 rounded-full blur-3xl pointer-events-none" />
@@ -108,8 +108,8 @@ export const LoginPage: React.FC = () => {
 
           {/* Top Logo & Title */}
           <div className="relative z-10">
-            <Link to="/" className="flex items-center gap-3.5 mb-2 group">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500/20 via-teal-500/20 to-purple-500/20 border border-emerald-500/40 flex items-center justify-center shadow-lg shadow-emerald-500/20 shrink-0 relative transition-transform group-hover:scale-105 duration-300">
+            <div className="flex items-center gap-3.5 mb-2">
+              <div className="login-emblem w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500/20 via-teal-500/20 to-purple-500/20 border border-emerald-500/40 flex items-center justify-center shadow-lg shadow-emerald-500/20 shrink-0 relative">
                 <Shield className="w-6 h-6 text-emerald-400 stroke-[2.2]" />
                 <Lock className="w-3.5 h-3.5 text-emerald-300 absolute bottom-2 right-2 drop-shadow" />
               </div>
@@ -121,7 +121,7 @@ export const LoginPage: React.FC = () => {
                   Enterprise Zero-Trust
                 </span>
               </div>
-            </Link>
+            </div>
 
             <div className="mt-6">
               <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight leading-snug">
@@ -150,7 +150,7 @@ export const LoginPage: React.FC = () => {
                 </div>
                 <div className="mt-2 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-[10px] text-emerald-300 font-mono">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
-                  ARGON2ID • ZERO-TRUST
+                  SCRYPT • ZERO-TRUST
                 </div>
               </div>
             </div>
@@ -190,7 +190,7 @@ export const LoginPage: React.FC = () => {
         </div>
 
         {/* Right Side: Sleek Charcoal Login Form Panel */}
-        <div className="w-full md:w-[52%] bg-[#0E1422] p-8 sm:p-10 lg:p-12 flex flex-col justify-between text-white">
+        <div className="login-form-panel w-full md:w-[52%] bg-[#0E1422] p-8 sm:p-10 lg:p-12 flex flex-col justify-between text-white">
           <div>
             <div className="mb-6">
               <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
@@ -348,17 +348,12 @@ export const LoginPage: React.FC = () => {
             </form>
           </div>
 
-          <div className="pt-6 mt-6 border-t border-slate-800 text-center text-xs text-slate-400 flex items-center justify-between">
-            <span>
-              <Link to="/register/owner" className="text-emerald-400 hover:text-emerald-300 font-semibold underline-offset-4 hover:underline">
-                Register as Document Owner
-              </Link>
-            </span>
-            <span>
-              <Link to="/register/viewer" className="text-purple-400 hover:text-purple-300 font-semibold underline-offset-4 hover:underline">
-                Register as Viewer
-              </Link>
-            </span>
+          <div className="pt-6 mt-6 border-t border-slate-800 text-center text-xs text-slate-400 flex items-center justify-center gap-1.5">
+            <span>Don't have an account?</span>
+            <Link to="/register" className="text-emerald-400 hover:text-emerald-300 font-semibold underline-offset-4 hover:underline flex items-center gap-1">
+              <span>Register</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
           </div>
         </div>
       </div>

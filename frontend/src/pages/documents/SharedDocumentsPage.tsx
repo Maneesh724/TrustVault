@@ -58,7 +58,7 @@ export const SharedDocumentsPage: React.FC = () => {
       window.document.body.appendChild(link);
       link.click();
       window.document.body.removeChild(link);
-      showToast('Download Verified', 'Decrypted payload delivered via ephemeral signed stream.', 'success');
+      showToast('Download Ready', `Downloading "${res.filename}"...`, 'success');
     } catch (err: any) {
       showToast('Download Denied', err.message, 'error');
     }
@@ -67,10 +67,10 @@ export const SharedDocumentsPage: React.FC = () => {
   if (!user) return null;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-6 animate-in fade-in duration-300 text-slate-100 pb-12">
       <div>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Documents Shared With You</h1>
-        <p className="text-xs sm:text-sm text-slate-500 mt-1">
+        <h1 className="text-2xl font-bold text-white tracking-tight">Documents Shared With You</h1>
+        <p className="text-xs sm:text-sm text-slate-400 mt-1">
           Restricted corporate artifacts where your identity holds an active discretionary access grant.
         </p>
       </div>
@@ -90,7 +90,7 @@ export const SharedDocumentsPage: React.FC = () => {
             return (
               <div
                 key={doc.id}
-                className="rounded-2xl bg-white border border-slate-200 shadow-sm p-5 flex flex-col justify-between hover:shadow-md hover:border-slate-300 transition-all duration-200"
+                className="rounded-2xl bg-[#0B101D] border border-[#161F33] hover:border-emerald-500/40 hover:bg-[#0E1526] shadow-lg shadow-black/20 p-5 flex flex-col justify-between transition-all duration-300 card-hover-glow"
               >
                 <div>
                   <div className="flex items-center justify-between gap-2 mb-3">
@@ -100,28 +100,28 @@ export const SharedDocumentsPage: React.FC = () => {
 
                   <Link
                     to={`/documents/${doc.id}`}
-                    className="text-sm font-bold text-slate-900 hover:text-emerald-600 transition-colors line-clamp-1 block mb-1"
+                    className="text-sm font-bold text-white hover:text-emerald-400 transition-colors line-clamp-1 block mb-1"
                   >
                     {doc.title}
                   </Link>
 
-                  <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed mb-4">
+                  <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed mb-4">
                     {doc.description || 'Enterprise protected document in zero-trust vault.'}
                   </p>
 
-                  <div className="p-3 rounded-xl bg-slate-50 border border-slate-100 text-[11px] space-y-1.5 mb-4 text-slate-500">
+                  <div className="p-3 rounded-xl bg-[#080D1A] border border-[#161F33] text-[11px] space-y-1.5 mb-4 text-slate-400">
                     <div className="flex items-center justify-between">
                       <span>Shared by:</span>
-                      <span className="font-semibold text-slate-800">{doc.ownerName}</span>
+                      <span className="font-semibold text-white">{doc.ownerName}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span>Granted on:</span>
-                      <span className="text-slate-700">
+                      <span className="text-slate-300">
                         {userGrant ? new Date(userGrant.grantedAt).toLocaleDateString() : 'Public Access'}
                       </span>
                     </div>
                     {userGrant?.expiresAt && (
-                      <div className="flex items-center justify-between text-amber-700 font-medium">
+                      <div className="flex items-center justify-between text-amber-400 font-medium">
                         <span>Expires:</span>
                         <span>{new Date(userGrant.expiresAt).toLocaleDateString()}</span>
                       </div>
@@ -129,18 +129,18 @@ export const SharedDocumentsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                <div className="pt-3 border-t border-[#161F33] flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1">
                     <button
                       onClick={() => setPreviewDoc(doc)}
-                      className="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-purple-400 hover:bg-slate-800 transition-colors cursor-pointer"
                       title="Preview"
                     >
                       <Eye className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleDownload(doc.id)}
-                      className="p-1.5 rounded-lg text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 transition-colors cursor-pointer"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition-colors cursor-pointer"
                       title="Download"
                     >
                       <Download className="w-4 h-4" />
@@ -149,9 +149,10 @@ export const SharedDocumentsPage: React.FC = () => {
 
                   <Link
                     to={`/documents/${doc.id}`}
-                    className="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center gap-1 cursor-pointer"
+                    className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1 group"
                   >
-                    View Details <ArrowRight className="w-3.5 h-3.5" />
+                    <span>View Grant</span>
+                    <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                   </Link>
                 </div>
               </div>

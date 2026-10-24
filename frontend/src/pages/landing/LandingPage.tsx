@@ -57,31 +57,24 @@ export const LandingPage: React.FC = () => {
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
           <Link
-            to="/register/owner"
-            className="w-full sm:w-auto px-6 py-3.5 rounded-xl font-bold text-xs bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 hover:from-emerald-400 hover:to-teal-400 shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2 transition-all hover:scale-105"
+            to="/register"
+            className="w-full sm:w-auto px-7 py-3.5 rounded-xl font-bold text-xs bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 hover:from-emerald-400 hover:to-teal-400 shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2 transition-all hover:scale-105"
           >
-            <span>Register as Document Owner</span>
+            <span>Create an Account</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
           <Link
-            to="/register/viewer"
-            className="w-full sm:w-auto px-6 py-3.5 rounded-xl font-bold text-xs bg-[#0E1424] hover:bg-[#141C33] border border-slate-800 text-white flex items-center justify-center gap-2 transition-all"
-          >
-            <Eye className="w-4 h-4 text-purple-400" />
-            <span>Register as Viewer</span>
-          </Link>
-          <Link
             to="/login"
-            className="w-full sm:w-auto px-6 py-3.5 rounded-xl font-bold text-xs bg-transparent border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white flex items-center justify-center gap-2 transition-all"
+            className="w-full sm:w-auto px-7 py-3.5 rounded-xl font-bold text-xs bg-[#0E1424] hover:bg-[#141C33] border border-slate-800 text-white flex items-center justify-center gap-2 transition-all"
           >
-            <KeyRound className="w-4 h-4" />
+            <KeyRound className="w-4 h-4 text-emerald-400" />
             <span>Sign In to Vault</span>
           </Link>
         </div>
 
         {/* Feature Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-16 text-left">
-          <div className="p-6 rounded-2xl bg-[#0B101D] border border-[#161F33] space-y-3">
+          <div className="p-6 rounded-2xl bg-[#0B101D] border border-[#161F33] space-y-3 card-hover-glow">
             <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
               <Shield className="w-5 h-5" />
             </div>
@@ -91,7 +84,7 @@ export const LandingPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="p-6 rounded-2xl bg-[#0B101D] border border-[#161F33] space-y-3">
+          <div className="p-6 rounded-2xl bg-[#0B101D] border border-[#161F33] space-y-3 card-hover-glow">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
               <FileCheck className="w-5 h-5" />
             </div>
@@ -101,8 +94,8 @@ export const LandingPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="p-6 rounded-2xl bg-[#0B101D] border border-[#161F33] space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center">
+          <div className="p-6 rounded-2xl bg-[#0B101D] border border-[#161F33] space-y-3 card-hover-glow">
+            <div className="w-10 h-10 rounded-xl bg-teal-500/20 text-teal-400 flex items-center justify-center">
               <Eye className="w-5 h-5" />
             </div>
             <h3 className="font-bold text-base text-white">Restricted Viewer Portal</h3>

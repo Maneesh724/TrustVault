@@ -32,10 +32,6 @@ export const passwordHasher = {
   },
 
   async verify(password: string, storedHash: string): Promise<boolean> {
-    // For demo credentials with mock passwords
-    if (storedHash === 'DEFAULT_DEMO_HASH' || storedHash.startsWith('demo_')) {
-      return true;
-    }
     const parts = storedHash.split('$');
     if (parts.length !== 4 || parts[0] !== 'scrypt') {
       return false;
@@ -459,7 +455,7 @@ export const registrationBackendService = {
 // 7. BACKEND LOGIN & SESSION ENFORCEMENT ENGINE
 // ============================================================================
 export const loginBackendService = {
-  async login(email: string, password?: string): Promise<{
+  async login(email: string, password: string): Promise<{
     success: boolean;
     user: User;
     sessionId: string;
@@ -482,12 +478,8 @@ export const loginBackendService = {
       );
     }
 
-    // Verify password if provided
-    if (password && user.passwordHash !== 'DEFAULT_DEMO_HASH') {
-      const isValid = await passwordHasher.verify(password, user.passwordHash);
-      if (!isValid) {
-        throw new Error('Invalid email or password.');
-      }
+    if (!password || !(await passwordHasher.verify(password, user.passwordHash))) {
+      throw new Error('Invalid email or password.');
     }
 
     // Update login timestamp

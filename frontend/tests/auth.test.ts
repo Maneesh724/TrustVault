@@ -15,6 +15,17 @@ test('TrustVault Authentication & Zero-Trust Security Test Suite', async (t) => 
   backendStore.verificationTokens.clear();
   backendStore.sessions.clear();
 
+  await t.test('Seeded accounts require a valid password', async () => {
+    await assert.rejects(
+      async () => loginBackendService.login('admin@trustvault.com', ''),
+      { message: 'Invalid email or password.' }
+    );
+    await assert.rejects(
+      async () => loginBackendService.login('admin@trustvault.com', 'any-password'),
+      { message: 'Invalid email or password.' }
+    );
+  });
+
   // ==========================================================================
   // Test 1: OTP Expiry Enforcement (5-minute TTL)
   // ==========================================================================

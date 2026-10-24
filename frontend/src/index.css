@@ -2,28 +2,167 @@
 
 @layer base {
   :root {
-    --background: 220 20% 98%;
-    --foreground: 224 71% 4%;
+    --background: 220 30% 6%;
+    --foreground: 210 40% 98%;
   }
 
   body {
-    @apply bg-[#F8FAFC] text-slate-800 min-h-screen font-sans antialiased selection:bg-blue-600 selection:text-white;
+    @apply bg-[#070A13] text-slate-100 min-h-screen font-sans antialiased selection:bg-emerald-500/30 selection:text-emerald-200;
     font-feature-settings: "rlig" 1, "calt" 1;
+    background-color: #070A13;
+    color: #F1F5F9;
   }
 }
 
-/* Custom enterprise scrollbar */
+/* Custom cyber dark scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: #0A0E1A;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
+  background: #1E293B;
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: #10B981;
+}
+
+/* Auth Pages Styling - Obsidian Cyber Theme (Zero Blue) */
+.login-page {
+  background:
+    radial-gradient(ellipse at 15% 15%, rgba(16, 185, 129, 0.12), transparent 45%),
+    radial-gradient(ellipse at 85% 85%, rgba(139, 92, 246, 0.12), transparent 45%),
+    radial-gradient(ellipse at 50% 50%, rgba(245, 158, 11, 0.05), transparent 60%),
+    #070A13;
+}
+
+.login-card {
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  box-shadow: 0 25px 70px -15px rgba(0, 0, 0, 0.8), 0 0 35px -10px rgba(16, 185, 129, 0.15);
+  animation: login-card-enter 550ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.login-brand-panel {
+  background: linear-gradient(155deg, #090E1A 0%, #0D1527 50%, #080C16 100%);
+  border-right: 1px solid rgba(16, 185, 129, 0.15);
+}
+
+.login-form-panel {
+  background: #0B101D;
+  color: #F8FAFC;
+}
+
+.login-form-panel h2 {
+  color: #FFFFFF;
+}
+
+.login-form-panel label {
+  color: #CBD5E1;
+}
+
+.login-form-panel input:not([type="checkbox"]) {
+  background-color: #080D1A;
+  border-color: #1E293B;
+  color: #FFFFFF;
+}
+
+.login-form-panel input:not([type="checkbox"]):focus {
+  border-color: #10B981 !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+.login-emblem {
+  animation: login-emblem-float 4.5s ease-in-out infinite;
+}
+
+.login-orb {
+  animation: login-orb-drift 10s ease-in-out infinite alternate;
+}
+
+.login-orb-indigo {
+  animation-delay: -5s;
+}
+
+/* Animations */
+@keyframes login-card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes login-emblem-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes login-orb-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(0.95);
+  }
+  to {
+    transform: translate3d(24px, -20px, 0) scale(1.1);
+  }
+}
+
+/* Subtle glowing pulse */
+@keyframes glow-pulse {
+  0%, 100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+.animate-glow-pulse {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
+
+/* Shimmer animation for highlighted badges */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2.5s infinite;
+}
+
+/* Card hover glow */
+.card-hover-glow {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card-hover-glow:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.6), 0 0 20px -5px rgba(16, 185, 129, 0.2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-card,
+  .login-emblem,
+  .login-orb,
+  .animate-glow-pulse,
+  .animate-shimmer {
+    animation: none;
+  }
 }

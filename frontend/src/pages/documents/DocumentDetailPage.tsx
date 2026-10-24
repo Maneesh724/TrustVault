@@ -75,7 +75,7 @@ export const DocumentDetailPage: React.FC = () => {
       window.document.body.appendChild(link);
       link.click();
       window.document.body.removeChild(link);
-      showToast('Download Verified', 'Decrypted payload delivered via ephemeral signed stream.', 'success');
+      showToast('Download Ready', `Downloading "${res.filename}"...`, 'success');
       await loadDocumentDetails();
     } catch (err: any) {
       showToast('Download Denied', err.message, 'error');
@@ -103,9 +103,9 @@ export const DocumentDetailPage: React.FC = () => {
 
   if (!document || !user) {
     return (
-      <div className="text-center p-12">
-        <p className="text-sm text-slate-400">Document not found.</p>
-        <Link to="/documents" className="text-xs text-indigo-400 hover:underline mt-2 inline-block">
+      <div className="text-center p-12 text-slate-400">
+        <p className="text-sm">Document not found.</p>
+        <Link to="/documents" className="text-xs text-emerald-400 hover:underline mt-2 inline-block">
           Return to Library
         </Link>
       </div>
@@ -117,29 +117,29 @@ export const DocumentDetailPage: React.FC = () => {
 
   if (isAccessDenied) {
     return (
-      <div className="max-w-2xl mx-auto my-12 p-8 rounded-3xl bg-white border border-rose-200 text-center space-y-4 shadow-sm animate-in zoom-in-95 duration-200">
-        <div className="w-16 h-16 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 mx-auto flex items-center justify-center">
+      <div className="max-w-2xl mx-auto my-12 p-8 rounded-3xl bg-[#0B101D] border border-rose-500/30 text-center space-y-4 shadow-xl text-slate-100 animate-in zoom-in-95 duration-200">
+        <div className="w-16 h-16 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-400 mx-auto flex items-center justify-center">
           <ShieldAlert className="w-8 h-8" />
         </div>
-        <h2 className="text-xl font-bold text-slate-900 tracking-tight">Zero-Trust Access Denied</h2>
-        <p className="text-sm text-slate-600 leading-relaxed max-w-lg mx-auto">
+        <h2 className="text-xl font-bold text-white tracking-tight">Zero-Trust Access Denied</h2>
+        <p className="text-sm text-slate-300 leading-relaxed max-w-lg mx-auto">
           {userPermission === 'REVOKED'
             ? 'Your access grant to this document was revoked by the document owner or compliance administrator. Under TrustVault zero-trust architecture, subsequent requests are terminated immediately.'
             : 'You do not hold an active cryptographic grant for this restricted document. Unauthenticated access attempts are immutably logged.'}
         </p>
 
-        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-left text-xs font-mono space-y-1 text-slate-600">
-          <div>Document ID: <span className="text-slate-900 font-semibold">{document.id}</span></div>
-          <div>Requesting Actor: <span className="text-slate-900 font-semibold">{user.name} ({user.email})</span></div>
-          <div>Grant Evaluation Status: <span className="text-rose-600 font-bold">{userPermission}</span></div>
-          <div>Timestamp: <span className="text-slate-700">{new Date().toISOString()}</span></div>
-          <div>Threat Defense: <span className="text-amber-700 font-semibold">Elevation of Privilege / Broken Object Level Authorization Guard</span></div>
+        <div className="p-4 rounded-xl bg-[#080D1A] border border-[#161F33] text-left text-xs font-mono space-y-1 text-slate-400">
+          <div>Document ID: <span className="text-white font-semibold">{document.id}</span></div>
+          <div>Requesting Actor: <span className="text-white font-semibold">{user.name} ({user.email})</span></div>
+          <div>Grant Evaluation Status: <span className="text-rose-400 font-bold">{userPermission}</span></div>
+          <div>Timestamp: <span className="text-slate-400">{new Date().toISOString()}</span></div>
+          <div>Threat Defense: <span className="text-amber-400 font-semibold">Elevation of Privilege / Broken Object Level Authorization Guard</span></div>
         </div>
 
         <div className="pt-2 flex justify-center gap-3">
           <Link
             to="/documents"
-            className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="px-4 py-2 rounded-xl bg-[#0D1526] hover:bg-[#121E36] border border-[#1E2638] text-white text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" /> Return to Library
           </Link>
@@ -151,12 +151,12 @@ export const DocumentDetailPage: React.FC = () => {
   const isOwner = document.ownerId === user.id || user.role === 'OWNER' || user.role === 'ADMIN';
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-300">
+    <div className="space-y-6 animate-in fade-in duration-300 text-slate-100 pb-12">
       {/* Top Navigation */}
       <div className="flex items-center justify-between">
         <Link
           to="/documents"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-slate-900 transition-colors"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-white transition-colors"
         >
           <ArrowLeft className="w-4 h-4" /> Back to Document Library
         </Link>
@@ -164,15 +164,15 @@ export const DocumentDetailPage: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsPreviewOpen(true)}
-            className="px-3.5 py-1.5 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs cursor-pointer"
+            className="px-3.5 py-1.5 rounded-xl border border-[#1E2638] bg-[#0D121F] text-slate-300 hover:text-white hover:bg-[#131B2E] text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
           >
-            <Eye className="w-3.5 h-3.5 text-slate-500" />
-            Sandbox Preview
+            <Eye className="w-3.5 h-3.5 text-emerald-400" />
+            Preview Document
           </button>
 
           <button
             onClick={handleDownload}
-            className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all cursor-pointer"
+            className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
           >
             <Download className="w-3.5 h-3.5" />
             Download
@@ -182,15 +182,15 @@ export const DocumentDetailPage: React.FC = () => {
             <>
               <button
                 onClick={() => setIsManageAccessOpen(true)}
-                className="px-3.5 py-1.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="px-3.5 py-1.5 rounded-xl border border-amber-500/30 bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
               >
-                <Key className="w-3.5 h-3.5 text-amber-600" />
+                <Key className="w-3.5 h-3.5 text-amber-400" />
                 Manage Grants
               </button>
 
               <button
                 onClick={() => setIsDeleteOpen(true)}
-                className="p-1.5 rounded-xl border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
+                className="p-1.5 rounded-xl border border-rose-500/30 bg-rose-500/15 text-rose-400 hover:bg-rose-500/25 transition-colors cursor-pointer"
                 title="Delete Document"
               >
                 <Trash2 className="w-4 h-4" />
@@ -201,72 +201,72 @@ export const DocumentDetailPage: React.FC = () => {
       </div>
 
       {/* Main Document Details Card */}
-      <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-6">
+      <div className="p-6 rounded-2xl bg-[#0B101D] border border-[#161F33] shadow-lg shadow-black/20 space-y-6">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
           <div className="space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
               <ClassificationBadge classification={document.classification} />
-              <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200">
+              <span className="text-[11px] font-semibold px-2.5 py-0.5 rounded-lg bg-purple-500/15 text-purple-400 border border-purple-500/30">
                 Evaluated Access: {userPermission}
               </span>
               {document.watermarkEnabled && (
-                <span className="text-[11px] font-semibold text-cyan-700 bg-cyan-50 border border-cyan-200 px-2.5 py-0.5 rounded-lg flex items-center gap-1">
-                  <Shield className="w-3 h-3 text-cyan-600" /> Watermark Enforced
+                <span className="text-[11px] font-semibold text-teal-400 bg-teal-500/15 border border-teal-500/30 px-2.5 py-0.5 rounded-lg flex items-center gap-1">
+                  <Shield className="w-3 h-3 text-teal-400" /> Watermark Enforced
                 </span>
               )}
             </div>
 
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">{document.title}</h1>
-            <p className="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-3xl">
+            <h1 className="text-2xl font-bold text-white tracking-tight">{document.title}</h1>
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed max-w-3xl">
               {document.description || 'Enterprise protected document in zero-trust vault.'}
             </p>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-right shrink-0">
-            <span className="text-[11px] text-slate-500 font-mono block">Original File: {document.filename}</span>
-            <span className="text-xs font-bold text-slate-800 mt-1 block">
+          <div className="p-3.5 rounded-xl bg-[#080D1A] border border-[#161F33] text-right shrink-0">
+            <span className="text-[11px] text-slate-400 font-mono block">Original File: {document.filename}</span>
+            <span className="text-xs font-bold text-white mt-1 block">
               {(document.fileSizeBytes / (1024 * 1024)).toFixed(2)} MB
             </span>
           </div>
         </div>
 
         {/* Cryptographic SHA-256 Fingerprint */}
-        <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-          <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
+        <div className="p-4 rounded-xl bg-[#080D1A] border border-[#161F33] space-y-1">
+          <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
             <span className="flex items-center gap-1.5">
-              <Hash className="w-4 h-4 text-blue-600" />
+              <Hash className="w-4 h-4 text-emerald-400" />
               SHA-256 Checksum Fingerprint (Integrity Verified)
             </span>
-            <span className="text-emerald-700 flex items-center gap-1 text-[11px] font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Immutable Hash
+            <span className="text-emerald-400 flex items-center gap-1 text-[11px] font-semibold bg-emerald-500/15 px-2 py-0.5 rounded-md border border-emerald-500/30">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Immutable Hash
             </span>
           </div>
-          <p className="font-mono text-xs text-slate-800 break-all select-all pt-1">
+          <p className="font-mono text-xs text-emerald-300 break-all select-all pt-1">
             {document.sha256Hash}
           </p>
         </div>
 
         {/* Metadata Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 rounded-xl bg-slate-50/70 border border-slate-200/80 text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-4 rounded-xl bg-[#080D1A] border border-[#161F33] text-xs">
           <div>
-            <span className="text-slate-500 block">Owner / Author</span>
-            <span className="font-semibold text-slate-900 mt-0.5 block">{document.ownerName}</span>
-            <span className="text-[10px] text-slate-500">{document.ownerEmail}</span>
+            <span className="text-slate-400 block">Owner / Author</span>
+            <span className="font-semibold text-white mt-0.5 block">{document.ownerName}</span>
+            <span className="text-[10px] text-slate-400">{document.ownerEmail}</span>
           </div>
           <div>
-            <span className="text-slate-500 block">Creation Timestamp</span>
-            <span className="font-semibold text-slate-900 mt-0.5 block">
+            <span className="text-slate-400 block">Creation Timestamp</span>
+            <span className="font-semibold text-white mt-0.5 block">
               {new Date(document.createdAt).toLocaleDateString()}
             </span>
-            <span className="text-[10px] text-slate-500">{new Date(document.createdAt).toLocaleTimeString()}</span>
+            <span className="text-[10px] text-slate-400">{new Date(document.createdAt).toLocaleTimeString()}</span>
           </div>
           <div>
-            <span className="text-slate-500 block">Active Grants</span>
-            <span className="font-semibold text-blue-700 mt-0.5 block">{document.grantsCount} users</span>
+            <span className="text-slate-400 block">Active Grants</span>
+            <span className="font-semibold text-purple-400 mt-0.5 block">{document.grantsCount} users</span>
           </div>
           <div>
-            <span className="text-slate-500 block">Current Version</span>
-            <span className="font-semibold text-emerald-700 mt-0.5 block">
+            <span className="text-slate-400 block">Current Version</span>
+            <span className="font-semibold text-emerald-400 mt-0.5 block">
               v{document.versions.length}.0
             </span>
           </div>
@@ -274,21 +274,21 @@ export const DocumentDetailPage: React.FC = () => {
       </div>
 
       {/* Access Grants & Permissions Table */}
-      <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
+      <div className="p-6 rounded-2xl bg-[#0B101D] border border-[#161F33] shadow-lg shadow-black/20 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              <Key className="w-4 h-4 text-amber-500" />
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <Key className="w-4 h-4 text-amber-400" />
               Document Access Grants ({document.grants.length})
             </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-slate-400 mt-0.5">
               Authorized users with read/edit capabilities. Revoking a grant takes effect immediately.
             </p>
           </div>
           {isOwner && (
             <button
               onClick={() => setIsManageAccessOpen(true)}
-              className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-emerald-500/20 cursor-pointer"
             >
               <Key className="w-3.5 h-3.5" />
               Add / Revoke Grants
@@ -297,14 +297,14 @@ export const DocumentDetailPage: React.FC = () => {
         </div>
 
         {document.grants.length === 0 ? (
-          <div className="p-6 text-center text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl">
+          <div className="p-6 text-center text-xs text-slate-400 bg-[#080D1A] border border-[#161F33] rounded-xl">
             Only the document owner currently holds access to this artifact.
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-slate-200">
+          <div className="overflow-x-auto rounded-xl border border-[#161F33]">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-200 text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                <tr className="bg-[#080D1A] border-b border-[#161F33] text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
                   <th className="py-2.5 px-3">Grantee</th>
                   <th className="py-2.5 px-3">Role</th>
                   <th className="py-2.5 px-3">Permission</th>
@@ -313,24 +313,24 @@ export const DocumentDetailPage: React.FC = () => {
                   <th className="py-2.5 px-3">Expires</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-[#161F33]">
                 {document.grants.map((grant) => (
-                  <tr key={grant.id} className="hover:bg-slate-50/70">
+                  <tr key={grant.id} className="hover:bg-slate-900/40">
                     <td className="py-2.5 px-3">
-                      <div className="font-medium text-slate-900">{grant.userName}</div>
-                      <div className="text-[11px] text-slate-500">{grant.userEmail}</div>
+                      <div className="font-medium text-white">{grant.userName}</div>
+                      <div className="text-[11px] text-slate-400">{grant.userEmail}</div>
                     </td>
                     <td className="py-2.5 px-3">
                       <RoleBadge role={grant.userRole} />
                     </td>
-                    <td className="py-2.5 px-3 font-semibold text-slate-700">
+                    <td className="py-2.5 px-3 font-semibold text-slate-300">
                       {grant.permission}
                     </td>
                     <td className="py-2.5 px-3">
                       <StatusBadge status={grant.status} />
                     </td>
-                    <td className="py-2.5 px-3 text-slate-600">{grant.grantedBy}</td>
-                    <td className="py-2.5 px-3 text-slate-600">
+                    <td className="py-2.5 px-3 text-slate-400">{grant.grantedBy}</td>
+                    <td className="py-2.5 px-3 text-slate-400">
                       {grant.expiresAt ? new Date(grant.expiresAt).toLocaleDateString() : 'Indefinite'}
                     </td>
                   </tr>
@@ -342,9 +342,9 @@ export const DocumentDetailPage: React.FC = () => {
       </div>
 
       {/* Version History */}
-      <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
-        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-          <History className="w-4 h-4 text-cyan-600" />
+      <div className="p-6 rounded-2xl bg-[#0B101D] border border-[#161F33] shadow-lg shadow-black/20 space-y-4">
+        <h3 className="text-base font-bold text-white flex items-center gap-2">
+          <History className="w-4 h-4 text-teal-400" />
           Cryptographic Version History ({document.versions.length})
         </h3>
 
@@ -352,22 +352,22 @@ export const DocumentDetailPage: React.FC = () => {
           {document.versions.map((ver) => (
             <div
               key={ver.id}
-              className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
+              className="p-4 rounded-xl bg-[#080D1A] border border-[#161F33] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
             >
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-blue-700">v{ver.versionNumber}.0</span>
-                  <span className="text-slate-700 font-medium">Uploaded by {ver.uploaderName}</span>
-                  <span className="text-slate-400">•</span>
-                  <span className="text-slate-500">{new Date(ver.uploadedAt).toLocaleString()}</span>
+                  <span className="font-bold text-emerald-400">v{ver.versionNumber}.0</span>
+                  <span className="text-white font-medium">Uploaded by {ver.uploaderName}</span>
+                  <span className="text-slate-500">•</span>
+                  <span className="text-slate-400">{new Date(ver.uploadedAt).toLocaleString()}</span>
                 </div>
-                <p className="text-slate-600 text-xs mt-1">{ver.changeSummary}</p>
-                <p className="text-[11px] font-mono text-slate-500 mt-1">
+                <p className="text-slate-300 text-xs mt-1">{ver.changeSummary}</p>
+                <p className="text-[11px] font-mono text-slate-400 mt-1">
                   SHA-256: {ver.sha256Hash}
                 </p>
               </div>
 
-              <div className="text-slate-500 text-xs font-mono shrink-0">
+              <div className="text-slate-400 text-xs font-mono shrink-0">
                 {(ver.fileSizeBytes / (1024 * 1024)).toFixed(2)} MB
               </div>
             </div>
@@ -376,18 +376,18 @@ export const DocumentDetailPage: React.FC = () => {
       </div>
 
       {/* Document Specific Audit Trail */}
-      <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
-        <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-          <Activity className="w-4 h-4 text-blue-600" />
+      <div className="p-6 rounded-2xl bg-[#0B101D] border border-[#161F33] shadow-lg shadow-black/20 space-y-4">
+        <h3 className="text-base font-bold text-white flex items-center gap-2">
+          <Activity className="w-4 h-4 text-emerald-400" />
           Document Audit History ({docAuditLogs.length} events)
         </h3>
 
         {docAuditLogs.length === 0 ? (
-          <div className="p-6 text-center text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl">
+          <div className="p-6 text-center text-xs text-slate-400 bg-[#080D1A] border border-[#161F33] rounded-xl">
             No audit records registered for this document yet.
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-[#161F33]">
             {docAuditLogs.map((log) => (
               <div key={log.id} className="py-3 flex items-center justify-between gap-4 text-xs">
                 <div className="flex items-center gap-3 min-w-0">
@@ -402,19 +402,19 @@ export const DocumentDetailPage: React.FC = () => {
                   />
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="font-semibold text-slate-800">{log.action}</span>
+                      <span className="font-semibold text-white">{log.action}</span>
                       <span
                         className={`text-[10px] px-2 py-0.5 rounded font-bold ${
                           log.outcome === 'DENIED'
-                            ? 'bg-rose-50 text-rose-700 border border-rose-200'
-                            : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                            ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                            : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
                         }`}
                       >
                         {log.outcome}
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                      Actor: <span className="text-slate-700 font-medium">{log.actorName}</span> ({log.actorEmail}) • IP:{' '}
+                    <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                      Actor: <span className="text-white font-medium">{log.actorName}</span> ({log.actorEmail}) • IP:{' '}
                       {log.ipAddress}
                     </p>
                   </div>

@@ -120,11 +120,11 @@ export const AccessManageModal: React.FC<AccessManageModalProps> = ({
         subtitle={`Manage document permissions for: ${document.title}`}
         maxWidth="2xl"
       >
-        <div className="space-y-6">
+        <div className="space-y-6 text-slate-200">
           {/* Grant New Access Section */}
-          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-1.5 mb-3">
-              <UserPlus className="w-4 h-4 text-emerald-600" />
+          <div className="p-4 rounded-xl bg-[#080D1A] border border-[#161F33]">
+            <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5 mb-3">
+              <UserPlus className="w-4 h-4 text-emerald-400" />
               Issue New Grant
             </h4>
 
@@ -132,12 +132,12 @@ export const AccessManageModal: React.FC<AccessManageModalProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {/* User Select */}
                 <div className="sm:col-span-1">
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">User *</label>
+                  <label className="block text-[11px] font-semibold text-slate-300 mb-1">User *</label>
                   <select
                     value={selectedUserId}
                     onChange={(e) => setSelectedUserId(e.target.value)}
                     required
-                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-600"
+                    className="w-full bg-[#0D121F] border border-[#1E2638] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
                   >
                     <option value="">Select recipient...</option>
                     {eligibleUsers.map((u) => (
@@ -150,11 +150,11 @@ export const AccessManageModal: React.FC<AccessManageModalProps> = ({
 
                 {/* Permission Level */}
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Permission *</label>
+                  <label className="block text-[11px] font-semibold text-slate-300 mb-1">Permission *</label>
                   <select
                     value={permission}
                     onChange={(e) => setPermission(e.target.value as PermissionLevel)}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-600"
+                    className="w-full bg-[#0D121F] border border-[#1E2638] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
                   >
                     <option value="READ">Read Only (Preview)</option>
                     <option value="EDIT">Read & Edit (New Version)</option>
@@ -163,11 +163,11 @@ export const AccessManageModal: React.FC<AccessManageModalProps> = ({
 
                 {/* Expiration Option */}
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Expiration</label>
+                  <label className="block text-[11px] font-semibold text-slate-300 mb-1">Expiration</label>
                   <select
                     value={expirationOption}
                     onChange={(e) => setExpirationOption(e.target.value as any)}
-                    className="w-full bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-600"
+                    className="w-full bg-[#0D121F] border border-[#1E2638] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
                   >
                     <option value="NONE">Indefinite (No expiry)</option>
                     <option value="7D">7 Days</option>
@@ -179,12 +179,12 @@ export const AccessManageModal: React.FC<AccessManageModalProps> = ({
 
               {expirationOption === 'CUSTOM' && (
                 <div className="pt-1">
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Select Expiry Date & Time</label>
+                  <label className="block text-[11px] font-semibold text-slate-300 mb-1">Select Expiry Date & Time</label>
                   <input
                     type="datetime-local"
                     value={customExpiresAt}
                     onChange={(e) => setCustomExpiresAt(e.target.value)}
-                    className="w-full sm:w-64 bg-white border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-emerald-600"
+                    className="w-full sm:w-64 bg-[#0D121F] border border-[#1E2638] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500"
                   />
                 </div>
               )}
@@ -193,7 +193,7 @@ export const AccessManageModal: React.FC<AccessManageModalProps> = ({
                 <button
                   type="submit"
                   disabled={isGranting || !selectedUserId}
-                  className="px-4 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white transition-all shadow-xs cursor-pointer"
+                  className="px-4 py-1.5 text-xs font-bold rounded-lg bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 disabled:opacity-50 text-slate-950 transition-all shadow-sm shadow-emerald-500/20 cursor-pointer"
                 >
                   {isGranting ? 'Authorizing...' : 'Grant Access'}
                 </button>
@@ -203,13 +203,13 @@ export const AccessManageModal: React.FC<AccessManageModalProps> = ({
 
           {/* Active Grants List */}
           <div>
-            <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider mb-3 flex items-center justify-between">
+            <h4 className="text-xs font-bold text-white uppercase tracking-wider mb-3 flex items-center justify-between">
               <span>Active & Historic Grants ({document.grants.length})</span>
-              <span className="text-[11px] text-slate-500 font-normal">Immediate Revocation Active</span>
+              <span className="text-[11px] text-emerald-400 font-normal">Immediate Revocation Active</span>
             </h4>
 
             {document.grants.length === 0 ? (
-              <div className="p-6 text-center text-xs text-slate-500 bg-slate-50 border border-slate-200 rounded-xl">
+              <div className="p-6 text-center text-xs text-slate-400 bg-[#080D1A] border border-[#161F33] rounded-xl">
                 No external users have been granted access to this document yet.
               </div>
             ) : (
@@ -219,23 +219,23 @@ export const AccessManageModal: React.FC<AccessManageModalProps> = ({
                     key={grant.id}
                     className={`flex items-center justify-between p-3 rounded-xl border transition-all ${
                       grant.status === 'ACTIVE'
-                        ? 'bg-white border-slate-200 shadow-sm'
-                        : 'bg-rose-50/50 border-rose-200 opacity-80'
+                        ? 'bg-[#080D1A] border-[#161F33] shadow-sm'
+                        : 'bg-rose-950/20 border-rose-500/20 opacity-80'
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-xs font-bold text-slate-700 shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-bold text-slate-200 shrink-0">
                         {grant.userName.charAt(0)}
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className="text-xs font-bold text-slate-800 truncate">{grant.userName}</p>
+                          <p className="text-xs font-bold text-white truncate">{grant.userName}</p>
                           <RoleBadge role={grant.userRole} className="scale-75 origin-left" />
                           <StatusBadge status={grant.status} />
                         </div>
-                        <p className="text-[11px] text-slate-500 truncate">{grant.userEmail}</p>
-                        <div className="flex items-center gap-3 text-[10px] text-slate-500 mt-0.5">
-                          <span>Permission: <strong className="text-slate-700">{grant.permission}</strong></span>
+                        <p className="text-[11px] text-slate-400 truncate">{grant.userEmail}</p>
+                        <div className="flex items-center gap-3 text-[10px] text-slate-400 mt-0.5">
+                          <span>Permission: <strong className="text-emerald-400">{grant.permission}</strong></span>
                           <span>•</span>
                           <span>Expires: {grant.expiresAt ? new Date(grant.expiresAt).toLocaleDateString() : 'Never'}</span>
                         </div>
@@ -248,13 +248,13 @@ export const AccessManageModal: React.FC<AccessManageModalProps> = ({
                         <button
                           type="button"
                           onClick={() => handlePromptRevoke(grant.id, grant.userName)}
-                          className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100 transition-all flex items-center gap-1 shadow-sm"
+                          className="px-2.5 py-1 text-xs font-semibold rounded-lg border border-rose-500/30 bg-rose-500/15 text-rose-300 hover:bg-rose-500/25 transition-all flex items-center gap-1 shadow-sm cursor-pointer"
                         >
                           <ShieldX className="w-3.5 h-3.5" />
                           Revoke Access
                         </button>
                       ) : (
-                        <span className="text-[11px] text-rose-600 font-semibold italic">
+                        <span className="text-[11px] text-rose-400 font-semibold italic">
                           Revoked
                         </span>
                       )}

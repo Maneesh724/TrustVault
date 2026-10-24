@@ -7,7 +7,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   allUsers: User[];
-  login: (email: string, password?: string, rememberMe?: boolean) => Promise<User>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<User>;
   register: (params: {
     name: string;
     email: string;
@@ -61,10 +61,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     init();
   }, []);
 
-  const login = async (email: string, password?: string, rememberMe?: boolean): Promise<User> => {
+  const login = async (email: string, password: string, rememberMe?: boolean): Promise<User> => {
     const loggedUser = await authService.login(email, password, rememberMe);
     setUser(loggedUser);
-    await refreshUsers();
+    // Refresh directory asynchronously in the background so redirect is instantaneous
+    refreshUsers().catch(console.error);
     return loggedUser;
   };
 

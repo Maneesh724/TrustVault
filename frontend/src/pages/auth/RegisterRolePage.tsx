@@ -14,6 +14,7 @@ import {
   Eye,
   EyeOff,
   ArrowRight,
+  ArrowLeft,
   ShieldCheck,
   RefreshCw,
   FolderLock,
@@ -201,6 +202,42 @@ export const RegisterRolePage: React.FC<RegisterRoleProps> = ({ role }) => {
       {/* RIGHT REGISTRATION FORM */}
       <div className="lg:w-7/12 flex items-center justify-center p-6 sm:p-10 lg:p-14 bg-[#080B12]">
         <div className="w-full max-w-xl">
+          <Link
+            to="/register"
+            className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white mb-5 transition-colors cursor-pointer group"
+          >
+            <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform" />
+            <span>Choose a different role</span>
+          </Link>
+
+          {/* Role switcher toggle */}
+          <div className="flex p-1 bg-[#0E1424] border border-slate-800 rounded-xl mb-6">
+            <button
+              type="button"
+              onClick={() => navigate('/register/owner')}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                isOwner
+                  ? 'bg-emerald-500 text-slate-950 shadow-sm shadow-emerald-500/20'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <FolderLock className="w-3.5 h-3.5" />
+              <span>Document Owner</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => navigate('/register/viewer')}
+              className={`flex-1 py-2 text-xs font-semibold rounded-lg flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                !isOwner
+                  ? 'bg-purple-600 text-white shadow-sm shadow-purple-500/20'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>Viewer</span>
+            </button>
+          </div>
+
           <div className="mb-6">
             <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
               Register as {isOwner ? 'Document Owner' : 'Viewer'}
@@ -396,15 +433,9 @@ export const RegisterRolePage: React.FC<RegisterRoleProps> = ({ role }) => {
               </Link>
             </span>
             <span>
-              {isOwner ? (
-                <Link to="/register/viewer" className="text-purple-400 hover:underline">
-                  Register as Viewer instead
-                </Link>
-              ) : (
-                <Link to="/register/owner" className="text-emerald-400 hover:underline">
-                  Register as Owner instead
-                </Link>
-              )}
+              <Link to="/register" className="text-slate-400 hover:text-emerald-400 transition-colors">
+                Change role
+              </Link>
             </span>
           </div>
         </div>

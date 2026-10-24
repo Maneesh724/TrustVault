@@ -18,6 +18,9 @@ import {
   Check,
   X,
   ShieldAlert,
+  Share2,
+  Eye,
+  Download,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
@@ -36,9 +39,9 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch }) => 
   const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [notifFilter, setNotifFilter] = useState<'ALL' | 'APPROVALS' | 'DOCS' | 'ACTIVITY'>('ALL');
+  const [notifFilter, setNotifFilter] = useState<string>('ALL');
   const [notifications, setNotifications] = useState<AdminNotification[]>(() =>
-    notificationService.getNotifications()
+    notificationService.getNotificationsForRole(user)
   );
 
   const notifRef = useRef<HTMLDivElement>(null);
@@ -47,10 +50,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch }) => 
   useEffect(() => {
     notificationService.fetchLiveNotifications();
     const unsubscribe = notificationService.subscribe(() => {
-      setNotifications(notificationService.getNotifications());
+      setNotifications(notificationService.getNotificationsForRole(user));
     });
     return unsubscribe;
-  }, []);
+  }, [user]);
 
   // Close popovers on click outside
   useEffect(() => {
@@ -72,17 +75,63 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch }) => 
   ).length;
 
   const filteredNotifications = notifications.filter((n) => {
-    if (notifFilter === 'APPROVALS') {
-      return n.type === 'ACCESS_APPROVAL_REQUEST' || n.type === 'ACCESS_APPROVED' || n.type === 'ACCESS_REJECTED';
-    }
-    if (notifFilter === 'DOCS') {
-      return n.type === 'DOC_UPLOAD';
-    }
-    if (notifFilter === 'ACTIVITY') {
-      return n.type === 'USER_LOGIN' || n.type === 'VIEWER_ACTION' || n.type === 'OWNER_ACTION';
+    if (notifFilter === 'ALL') return true;
+
+    if (user?.role === 'ADMIN') {
+      if (notifFilter === 'APPROVALS') {
+        return n.type === 'ACCESS_APPROVAL_REQUEST' || n.type === 'ACCESS_APPROVED' || n.type === 'ACCESS_REJECTED';
+      }
+      if (notifFilter === 'LOGINS') {
+        return n.type === 'USER_LOGIN';
+      }
+      if (notifFilter === 'DOCS') {
+        return n.type === 'DOC_UPLOAD';
+      }
+    } else if (user?.role === 'OWNER') {
+      if (notifFilter === 'SHARES') {
+        return n.type === 'DOC_SHARED' || n.type === 'DOC_REVOKED';
+      }
+      if (notifFilter === 'ACTIVITY') {
+        return n.type === 'DOC_ACCESSED' || n.type === 'VIEWER_ACTION';
+      }
+      if (notifFilter === 'UPLOADS') {
+        return n.type === 'DOC_UPLOAD';
+      }
+    } else if (user?.role === 'VIEWER') {
+      if (notifFilter === 'SHARED_WITH_ME') {
+        return n.type === 'DOC_SHARED';
+      }
+      if (notifFilter === 'ACTIVITY') {
+        return n.type === 'DOC_ACCESSED' || n.type === 'VIEWER_ACTION';
+      }
     }
     return true;
   });
+
+  const getFilterButtons = () => {
+    if (user?.role === 'ADMIN') {
+      return [
+        { id: 'ALL', label: 'All' },
+        { id: 'APPROVALS', label: `Approvals${pendingApprovalsCount > 0 ? ` (${pendingApprovalsCount})` : ''}` },
+        { id: 'LOGINS', label: 'Logins' },
+        { id: 'DOCS', label: 'Doc Uploads' },
+      ];
+    }
+    if (user?.role === 'OWNER') {
+      return [
+        { id: 'ALL', label: 'All' },
+        { id: 'SHARES', label: 'Shares' },
+        { id: 'ACTIVITY', label: 'Viewer Activity' },
+        { id: 'UPLOADS', label: 'My Uploads' },
+      ];
+    }
+    // VIEWER
+    return [
+      { id: 'ALL', label: 'All' },
+      { id: 'SHARED_WITH_ME', label: 'Shared With Me' },
+      { id: 'ACTIVITY', label: 'My Access' },
+    ];
+  };
 
   const handleApprove = async (notifId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -118,15 +167,6 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch }) => 
   const handleLogout = async () => {
     await logout();
     navigate('/login');
-  };
-
-  const handleSwitchUser = async (userId: string) => {
-    const target = allUsers.find((u) => u.id === userId);
-    if (target) {
-      await switchUser(target.id);
-      navigate(getRoleLandingRoute(target.role));
-      setProfileOpen(false);
-    }
   };
 
   const roleLabel =
@@ -183,18 +223,18 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch }) => 
 
           {/* Notifications Dropdown Popover */}
           {notifOpen && (
-            <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white border border-slate-200 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in duration-200">
+            <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-[#0D1322] border border-[#1E293B] rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in duration-200 text-slate-100">
               {/* Header */}
-              <div className="px-4 py-3 bg-slate-50/90 border-b border-slate-100 flex items-center justify-between">
+              <div className="px-4 py-3 bg-[#080D1A] border-b border-[#1E293B] flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-xs font-bold text-slate-900">Notifications</h3>
+                  <h3 className="text-xs font-bold text-white">Notifications</h3>
                   {unreadCount > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-600 border border-blue-200">
+                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                       {unreadCount} new
                     </span>
                   )}
                   {pendingApprovalsCount > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 flex items-center gap-1">
                       <AlertCircle className="w-2.5 h-2.5" />
                       {pendingApprovalsCount} approval required
                     </span>
@@ -203,7 +243,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch }) => 
                 {unreadCount > 0 && (
                   <button
                     onClick={() => notificationService.markAllAsRead()}
-                    className="text-[11px] font-medium text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+                    className="text-[11px] font-medium text-emerald-400 hover:text-emerald-300 hover:underline cursor-pointer"
                   >
                     Mark all read
                   </button>
@@ -211,34 +251,28 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch }) => 
               </div>
 
               {/* Filter Tabs */}
-              <div className="flex border-b border-slate-100 px-3 pt-2 gap-1 bg-white text-xs">
-                {(['ALL', 'APPROVALS', 'DOCS', 'ACTIVITY'] as const).map((tab) => (
+              <div className="flex border-b border-[#1E293B] px-3 pt-2 gap-1 bg-[#0B101D] text-xs overflow-x-auto">
+                {getFilterButtons().map((tab) => (
                   <button
-                    key={tab}
-                    onClick={() => setNotifFilter(tab)}
-                    className={`pb-2 px-2.5 text-[11px] font-semibold transition-colors relative cursor-pointer ${
-                      notifFilter === tab
-                        ? 'text-blue-600 border-b-2 border-blue-600'
-                        : 'text-slate-500 hover:text-slate-800'
+                    key={tab.id}
+                    onClick={() => setNotifFilter(tab.id)}
+                    className={`pb-2 px-2.5 text-[11px] font-semibold transition-colors relative cursor-pointer whitespace-nowrap ${
+                      notifFilter === tab.id
+                        ? 'text-emerald-400 border-b-2 border-emerald-400'
+                        : 'text-slate-400 hover:text-slate-200'
                     }`}
                   >
-                    {tab === 'ALL'
-                      ? 'All'
-                      : tab === 'APPROVALS'
-                      ? `Approvals ${pendingApprovalsCount > 0 ? `(${pendingApprovalsCount})` : ''}`
-                      : tab === 'DOCS'
-                      ? 'Docs'
-                      : 'Activity'}
+                    {tab.label}
                   </button>
                 ))}
               </div>
 
               {/* Notification Items List */}
-              <div className="max-h-80 overflow-y-auto divide-y divide-slate-100">
+              <div className="max-h-80 overflow-y-auto divide-y divide-[#162033]">
                 {filteredNotifications.length === 0 ? (
                   <div className="p-8 text-center text-slate-400">
-                    <CheckCircle2 className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                    <p className="text-xs font-medium text-slate-600">No notifications in this view</p>
+                    <CheckCircle2 className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+                    <p className="text-xs font-medium text-slate-300">No notifications in this view</p>
                     <p className="text-[11px] text-slate-400 mt-0.5">All activities and approvals are up to date.</p>
                   </div>
                 ) : (
@@ -253,7 +287,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch }) => 
                         key={notif.id}
                         onClick={() => notificationService.markAsRead(notif.id)}
                         className={`p-3.5 transition-colors cursor-pointer text-xs ${
-                          !notif.read ? 'bg-blue-50/40 hover:bg-blue-50/70' : 'bg-white hover:bg-slate-50'
+                          !notif.read ? 'bg-[#10182B]/60 hover:bg-[#141E36]' : 'bg-[#0D1322] hover:bg-[#10182B]'
                         }`}
                       >
                         <div className="flex items-start gap-3">
@@ -261,17 +295,29 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch }) => 
                           <div
                             className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
                               isPending
-                                ? 'bg-amber-100 text-amber-700 ring-2 ring-amber-400/40'
+                                ? 'bg-amber-500/20 text-amber-400 ring-2 ring-amber-400/30'
+                                : notif.type === 'DOC_SHARED'
+                                ? 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/30'
+                                : notif.type === 'DOC_ACCESSED'
+                                ? 'bg-teal-500/20 text-teal-400 ring-1 ring-teal-500/30'
+                                : notif.type === 'DOC_REVOKED'
+                                ? 'bg-rose-500/20 text-rose-400 ring-1 ring-rose-500/30'
                                 : notif.type === 'DOC_UPLOAD'
-                                ? 'bg-blue-100 text-blue-700'
+                                ? 'bg-purple-500/20 text-purple-400 ring-1 ring-purple-500/30'
                                 : notif.type === 'USER_LOGIN'
-                                ? 'bg-emerald-100 text-emerald-700'
+                                ? 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/30'
                                 : isApproved
-                                ? 'bg-emerald-100 text-emerald-700'
-                                : 'bg-purple-100 text-purple-700'
+                                ? 'bg-emerald-500/20 text-emerald-400 ring-1 ring-emerald-500/30'
+                                : 'bg-purple-500/20 text-purple-400 ring-1 ring-purple-500/30'
                             }`}
                           >
                             {isPending ? (
+                              <AlertCircle className="w-4 h-4" />
+                            ) : notif.type === 'DOC_SHARED' ? (
+                              <Share2 className="w-4 h-4" />
+                            ) : notif.type === 'DOC_ACCESSED' ? (
+                              <Eye className="w-4 h-4" />
+                            ) : notif.type === 'DOC_REVOKED' ? (
                               <AlertCircle className="w-4 h-4" />
                             ) : notif.type === 'DOC_UPLOAD' ? (
                               <Upload className="w-4 h-4" />
@@ -287,7 +333,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch }) => 
                           {/* Content */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2">
-                              <p className="font-bold text-slate-900 text-xs truncate">{notif.title}</p>
+                              <p className="font-bold text-white text-xs truncate">{notif.title}</p>
                               <span className="text-[10px] text-slate-400 shrink-0 font-mono">
                                 {new Date(notif.timestamp).toLocaleTimeString([], {
                                   hour: '2-digit',
@@ -296,15 +342,15 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch }) => 
                               </span>
                             </div>
 
-                            <p className="text-[11px] text-slate-600 mt-0.5 leading-snug">{notif.message}</p>
+                            <p className="text-[11px] text-slate-300 mt-0.5 leading-snug">{notif.message}</p>
 
                             {/* Requester details & inline actions for Access Approval Requests */}
                             {isApproval && (
-                              <div className="mt-2.5 pt-2 border-t border-slate-200/60">
-                                <div className="flex items-center gap-1.5 text-[10px] text-slate-500 mb-2">
-                                  <span className="font-medium text-slate-700">{notif.actorEmail}</span>
+                              <div className="mt-2.5 pt-2 border-t border-[#1E293B]">
+                                <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mb-2">
+                                  <span className="font-medium text-slate-300">{notif.actorEmail}</span>
                                   <span>•</span>
-                                  <span className="font-semibold text-blue-600">
+                                  <span className="font-semibold text-emerald-400">
                                     {notif.actorRole === 'OWNER' ? 'Document Owner' : 'Viewer'}
                                   </span>
                                 </div>
@@ -313,26 +359,26 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch }) => 
                                   <div className="flex items-center gap-2">
                                     <button
                                       onClick={(e) => handleApprove(notif.id, e)}
-                                      className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
+                                      className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-[11px] flex items-center gap-1 shadow-sm transition-colors cursor-pointer"
                                     >
                                       <Check className="w-3 h-3 stroke-[3]" />
                                       Approve Access
                                     </button>
                                     <button
                                       onClick={(e) => handleReject(notif.id, e)}
-                                      className="px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-semibold text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
+                                      className="px-2.5 py-1.5 rounded-lg bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 font-semibold text-[11px] flex items-center gap-1 transition-colors cursor-pointer"
                                     >
                                       <X className="w-3 h-3" />
                                       Reject
                                     </button>
                                   </div>
                                 ) : isApproved ? (
-                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-500/15 px-2 py-0.5 rounded-md border border-emerald-500/30">
                                     <CheckCircle2 className="w-3 h-3" />
                                     Access Granted
                                   </span>
                                 ) : isRejected ? (
-                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
+                                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-rose-400 bg-rose-500/15 px-2 py-0.5 rounded-md border border-rose-500/30">
                                     <X className="w-3 h-3" />
                                     Request Rejected
                                   </span>
@@ -348,10 +394,10 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch }) => 
               </div>
 
               {/* Footer */}
-              <div className="p-2.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-[11px]">
+              <div className="p-2.5 bg-[#080D1A] border-t border-[#1E293B] flex items-center justify-between text-[11px]">
                 <button
                   onClick={() => notificationService.clearAll()}
-                  className="text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+                  className="text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
                 >
                   Clear history
                 </button>
@@ -361,7 +407,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch }) => 
                       setNotifOpen(false);
                       navigate('/admin');
                     }}
-                    className="font-semibold text-blue-600 hover:text-blue-700 cursor-pointer"
+                    className="font-semibold text-emerald-400 hover:text-emerald-300 cursor-pointer"
                   >
                     Go to Admin Dashboard →
                   </button>
@@ -394,52 +440,48 @@ export const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar, onSearch }) => 
 
             {/* Profile Dropdown */}
             {profileOpen && (
-              <div className="absolute right-0 mt-2 w-64 bg-[#0E1424] border border-slate-800 rounded-2xl shadow-xl p-3 z-40 space-y-3 animate-in fade-in text-slate-200">
-                <div className="pb-2.5 border-b border-slate-800">
-                  <p className="text-xs font-bold text-white leading-tight">{user.name}</p>
-                  <p className="text-[11px] text-slate-400">{user.email}</p>
-                  <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+              <div className="absolute right-0 mt-2 w-64 bg-[#0E1424] border border-[#1E293B] rounded-2xl shadow-2xl p-4 z-40 space-y-3 animate-in fade-in text-slate-200">
+                <div className="pb-3 border-b border-[#1E293B]">
+                  <p className="text-sm font-bold text-white leading-tight">{user.name}</p>
+                  <p className="text-xs text-slate-400 mt-0.5 truncate">{user.email}</p>
+                  <span className="inline-block mt-2 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
                     {roleLabel}
                   </span>
                 </div>
 
-                {/* Quick Role Switcher for paired testing */}
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center gap-1">
-                    <UserCheck className="w-3 h-3 text-emerald-400" /> Switch Role:
-                  </p>
-                  <div className="space-y-1 text-xs">
-                    {allUsers.filter((u) => u.id !== user.id).slice(0, 3).map((u) => (
-                      <button
-                        key={u.id}
-                        onClick={() => handleSwitchUser(u.id)}
-                        className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-slate-800/80 flex items-center justify-between text-slate-300 transition-colors cursor-pointer"
-                      >
-                        <span className="truncate">{u.name}</span>
-                        <span className="text-[10px] text-emerald-400 font-mono">
-                          {u.role === 'ADMIN' ? 'Admin' : u.role === 'OWNER' ? 'Owner' : 'Viewer'}
-                        </span>
-                      </button>
-                    ))}
+                {/* Last Login Info */}
+                <div className="flex items-start gap-2 p-2.5 rounded-xl bg-[#080D1A] border border-[#161F33] text-xs">
+                  <Clock className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold block">Last Login</span>
+                    <span className="text-xs text-slate-200 font-mono mt-0.5 block">
+                      {user.lastLoginAt
+                        ? new Date(user.lastLoginAt).toLocaleString('en-US', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })
+                        : new Date().toLocaleString('en-US', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                    </span>
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-slate-800 space-y-1">
-                  <Link
-                    to="/settings"
-                    onClick={() => setProfileOpen(false)}
-                    className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:bg-slate-800/80 transition-colors"
-                  >
-                    <Settings className="w-3.5 h-3.5 text-slate-400" />
-                    Profile & Settings
-                  </Link>
-
+                {/* Sign Out Action Only */}
+                <div className="pt-1">
                   <button
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-medium text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                    className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl text-xs font-semibold text-rose-300 hover:text-white bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 transition-all cursor-pointer shadow-sm"
                   >
-                    <LogOut className="w-3.5 h-3.5" />
-                    Sign Out
+                    <LogOut className="w-4 h-4 text-rose-400" />
+                    <span>Sign Out</span>
                   </button>
                 </div>
               </div>

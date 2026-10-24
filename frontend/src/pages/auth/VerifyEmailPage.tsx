@@ -28,7 +28,6 @@ export const VerifyEmailPage: React.FC = () => {
   const [resending, setResending] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [cooldown, setCooldown] = useState(60);
-  const [devOtp, setDevOtp] = useState('');
 
   const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -79,9 +78,8 @@ export const VerifyEmailPage: React.FC = () => {
     setResending(true);
     setErrorMsg('');
     try {
-      const res = await authService.requestEmailOtp(email.trim().toLowerCase());
+      await authService.requestEmailOtp(email.trim().toLowerCase());
       setCooldown(60);
-      if (res.devOtp) setDevOtp(res.devOtp);
       showToast('New Code Sent', `Single-use OTP dispatched to ${email}.`, 'success');
     } catch (err: any) {
       setErrorMsg(err.message || 'Failed to resend verification OTP.');
@@ -162,12 +160,6 @@ export const VerifyEmailPage: React.FC = () => {
             Valid for 5 minutes.
           </p>
         </div>
-
-        {devOtp && (
-          <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300 font-mono">
-            [DEV MODE] Single-use OTP: <span className="font-bold tracking-widest text-white">{devOtp}</span>
-          </div>
-        )}
 
         {errorMsg && (
           <div className="p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-300 flex items-start gap-2 text-left">

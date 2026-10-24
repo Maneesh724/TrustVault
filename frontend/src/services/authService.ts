@@ -224,7 +224,7 @@ export const authService = {
     return user || null;
   },
 
-  async login(email: string, password?: string, rememberMe: boolean = false): Promise<User> {
+  async login(email: string, password: string, rememberMe: boolean = false): Promise<User> {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

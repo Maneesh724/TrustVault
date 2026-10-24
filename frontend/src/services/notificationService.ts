@@ -32,6 +32,144 @@ export const notificationService = {
     return getStoredNotifications();
   },
 
+  /**
+   * Returns notifications strictly filtered for the specified user role:
+   * - ADMIN: Approvals, user logins, and new document uploads
+   * - OWNER: Document-related messages (uploads, shares, revocations, access to their files)
+   * - VIEWER: Document-related messages (files shared with them, permission updates)
+   */
+  getNotificationsForRole(currentUser?: User | null): AdminNotification[] {
+    const all = getStoredNotifications();
+    if (!currentUser) return all;
+
+    if (currentUser.role === 'ADMIN') {
+      return all.filter((n) =>
+        n.type === 'ACCESS_APPROVAL_REQUEST' ||
+        n.type === 'ACCESS_APPROVED' ||
+        n.type === 'ACCESS_REJECTED' ||
+        n.type === 'USER_LOGIN' ||
+        n.type === 'DOC_UPLOAD'
+      );
+    }
+
+    if (currentUser.role === 'OWNER') {
+      return all.filter((n) => {
+        // Notifications where the owner is the actor (their uploads, grants, deletes)
+        if (n.actorId === currentUser.id && (
+          n.type === 'DOC_UPLOAD' ||
+          n.type === 'DOC_SHARED' ||
+          n.type === 'DOC_REVOKED' ||
+          n.type === 'OWNER_ACTION'
+        )) {
+          return true;
+        }
+        // Notifications where viewers viewed/downloaded this owner's document
+        if (n.details?.ownerId === currentUser.id || n.details?.ownerEmail === currentUser.email) {
+          return true;
+        }
+        // General doc upload by this owner
+        if (n.type === 'DOC_UPLOAD' && (n.actorId === currentUser.id || n.actorEmail === currentUser.email)) {
+          return true;
+        }
+        return false;
+      });
+    }
+
+    // VIEWER
+    return all.filter((n) => {
+      // Document shared specifically with this viewer
+      if (n.details?.recipientId === currentUser.id || n.details?.recipientEmail === currentUser.email) {
+        return true;
+      }
+      // Actions performed by this viewer on shared documents
+      if (n.actorId === currentUser.id && (n.type === 'VIEWER_ACTION' || n.type === 'DOC_ACCESSED')) {
+        return true;
+      }
+      return false;
+    });
+  },
+
+  notifyDocShared(
+    doc: VaultDocument,
+    owner: User,
+    recipient: { id: string; name: string; email: string },
+    permission: string
+  ): void {
+    // 1. Notification for the recipient Viewer
+    const viewerNotif: AdminNotification = {
+      id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      type: 'DOC_SHARED',
+      title: 'New Document Shared With You',
+      message: `${owner.name} granted you ${permission} access to "${doc.title}".`,
+      timestamp: new Date().toISOString(),
+      read: false,
+      actorId: owner.id,
+      actorName: owner.name,
+      actorEmail: owner.email,
+      actorRole: owner.role,
+      targetResourceId: doc.id,
+      targetResourceName: doc.title,
+      details: {
+        recipientId: recipient.id,
+        recipientEmail: recipient.email,
+        recipientName: recipient.name,
+        permission,
+      },
+    };
+
+    // 2. Notification for the Document Owner
+    const ownerNotif: AdminNotification = {
+      id: `notif-${Date.now() + 1}-${Math.random().toString(36).substr(2, 4)}`,
+      type: 'DOC_SHARED',
+      title: 'Document Permission Granted',
+      message: `You granted ${permission} permission on "${doc.title}" to ${recipient.name} (${recipient.email}).`,
+      timestamp: new Date().toISOString(),
+      read: false,
+      actorId: owner.id,
+      actorName: owner.name,
+      actorEmail: owner.email,
+      actorRole: owner.role,
+      targetResourceId: doc.id,
+      targetResourceName: doc.title,
+      details: {
+        ownerId: owner.id,
+        ownerEmail: owner.email,
+        recipientId: recipient.id,
+        permission,
+      },
+    };
+
+    appendStoredNotification(viewerNotif);
+    appendStoredNotification(ownerNotif);
+    notifyListeners();
+  },
+
+  notifyDocAccessed(doc: VaultDocument, viewer: User, actionType: 'VIEW' | 'DOWNLOAD'): void {
+    const actionLabel = actionType === 'DOWNLOAD' ? 'downloaded' : 'viewed';
+    const notif: AdminNotification = {
+      id: `notif-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      type: 'DOC_ACCESSED',
+      title: actionType === 'DOWNLOAD' ? 'Document Downloaded' : 'Document Viewed',
+      message: `Viewer ${viewer.name} (${viewer.email}) ${actionLabel} "${doc.title}".`,
+      timestamp: new Date().toISOString(),
+      read: false,
+      actorId: viewer.id,
+      actorName: viewer.name,
+      actorEmail: viewer.email,
+      actorRole: viewer.role,
+      targetResourceId: doc.id,
+      targetResourceName: doc.title,
+      details: {
+        ownerId: doc.ownerId,
+        ownerEmail: doc.ownerEmail,
+        actionType,
+      },
+    };
+
+    appendStoredNotification(notif);
+    notifyListeners();
+  },
+
   async fetchLiveNotifications(): Promise<AdminNotification[]> {
     try {
       const res = await fetch('/api/notifications');

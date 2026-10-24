@@ -53,21 +53,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       return [
         { name: 'Dashboard', path: '/owner/dashboard', icon: Home },
         { name: 'My Documents', path: '/owner/documents', icon: FileText },
-        { name: 'My Folders', path: '/owner/folders', icon: Folder },
-        { name: 'Shared by Me', path: '/owner/sharing', icon: Share2 },
-        { name: 'Permissions & Access', path: '/owner/sharing', icon: Key },
-        { name: 'Access History', path: '/owner/access-history', icon: Clock },
-        { name: 'Notifications', path: '/owner/notifications', icon: Bell, badge: notifCount > 0 ? notifCount : 3, badgeColor: 'bg-rose-500' },
-        { name: 'Profile & Security', path: '/owner/profile', icon: UserCog },
+        { name: 'Sharing History', path: '/owner/access-history', icon: Clock },
+        { name: 'Settings', path: '/owner/settings', icon: Settings },
       ];
     }
     // VIEWER
     return [
       { name: 'Dashboard', path: '/viewer/dashboard', icon: Home },
-      { name: 'Shared Documents', path: '/viewer/shared', icon: FileText },
-      { name: 'Recent Access', path: '/viewer/recent', icon: Clock },
-      { name: 'Activity Log', path: '/viewer/activity', icon: ShieldCheck },
-      { name: 'Notifications', path: '/viewer/notifications', icon: Bell },
+      { name: 'Shared With Me', path: '/viewer/shared', icon: FileText },
       { name: 'Profile & Security', path: '/viewer/profile', icon: UserCog },
     ];
   };

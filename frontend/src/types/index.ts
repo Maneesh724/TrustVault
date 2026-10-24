@@ -156,6 +156,9 @@ export interface SystemStats {
 
 export type AdminNotificationType =
   | 'DOC_UPLOAD'
+  | 'DOC_SHARED'
+  | 'DOC_ACCESSED'
+  | 'DOC_REVOKED'
   | 'USER_LOGIN'
   | 'VIEWER_ACTION'
   | 'OWNER_ACTION'

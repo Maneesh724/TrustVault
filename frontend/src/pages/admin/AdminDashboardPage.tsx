@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { adminService } from '../../services/adminService';
@@ -21,6 +21,11 @@ import {
   ArrowRight,
   ChevronRight,
   UserCog,
+  ArrowLeft,
+  UserX,
+  RefreshCw,
+  SlidersHorizontal,
+  Lock,
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -41,9 +46,15 @@ export const AdminDashboardPage: React.FC = () => {
   const { user, allUsers, refreshUsers } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // Active view: 'overview' | 'users' | 'approvals'
-  const [currentView, setCurrentView] = useState<'overview' | 'users' | 'approvals'>('overview');
+  // Route-based view detection:
+  // /admin/approvals -> Dedicated Approvals Screen
+  // /admin/users -> Dedicated User Management Screen
+  // /admin/dashboard (or /admin) -> Executive Dashboard Overview
+  const isApprovalsRoute = location.pathname.endsWith('/approvals');
+  const isUsersRoute = location.pathname.endsWith('/users');
+  const isOverviewRoute = !isApprovalsRoute && !isUsersRoute;
 
   // Live stats from backend
   const [stats, setStats] = useState<DashboardStats>({
@@ -67,8 +78,24 @@ export const AdminDashboardPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterRole, setFilterRole] = useState<'ALL' | 'OWNER' | 'VIEWER' | 'ADMIN'>('ALL');
   const [filterStatus, setFilterStatus] = useState<'ALL' | 'ACTIVE' | 'PENDING_APPROVAL' | 'SUSPENDED' | 'REJECTED'>('ALL');
-  const [sortBy] = useState<'name' | 'date' | 'role' | 'status'>('date');
-  const [sortOrder] = useState<'asc' | 'desc'>('desc');
+  const [sortBy, setSortBy] = useState<'name' | 'date' | 'role' | 'status'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  // Approvals view search
+  const [approvalsSearch, setApprovalsSearch] = useState('');
+
+  // Read search parameters for initial filter (e.g. /admin/users?role=OWNER)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const roleParam = params.get('role');
+    if (roleParam && ['OWNER', 'VIEWER', 'ADMIN'].includes(roleParam)) {
+      setFilterRole(roleParam as any);
+    }
+    const statusParam = params.get('status');
+    if (statusParam && ['ACTIVE', 'PENDING_APPROVAL', 'SUSPENDED', 'REJECTED'].includes(statusParam)) {
+      setFilterStatus(statusParam as any);
+    }
+  }, [location.search]);
 
   // Live clock string matching screenshot: "Sun, 27 Apr 2025  14:32"
   const [currentTimeStr, setCurrentTimeStr] = useState('');
@@ -182,16 +209,33 @@ export const AdminDashboardPage: React.FC = () => {
     ];
   }, [livePendingUsers]);
 
+  // Filtered pending approvals for the dedicated screen
+  const filteredApprovals = useMemo(() => {
+    if (!approvalsSearch.trim()) return pendingApprovalsDisplay;
+    const q = approvalsSearch.toLowerCase();
+    return pendingApprovalsDisplay.filter(
+      (u) =>
+        u.name.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        (u.phone && u.phone.includes(q))
+    );
+  }, [pendingApprovalsDisplay, approvalsSearch]);
+
+  // Approved owners list for history on the approvals screen
+  const approvedOwnersList = useMemo(() => {
+    return allUsers.filter((u) => u.role === 'OWNER' && u.status === 'ACTIVE');
+  }, [allUsers]);
+
   // Handle Approve User
   const handleApprove = async (targetId: string, targetName: string) => {
     if (!user) return;
     try {
       await adminService.approveUser(targetId, user);
-      showToast('Owner Approved', `Account for ${targetName} has been authorized.`, 'success');
+      showToast('Owner Approved', `Account for ${targetName} has been authorized with full owner privileges.`, 'success');
       await refreshUsers();
       fetchLiveStats();
     } catch (err: any) {
-      showToast('Approval Notice', err.message || 'Approved account.', 'success');
+      showToast('Approval Processed', err.message || 'Account approved.', 'success');
     }
   };
 
@@ -205,6 +249,23 @@ export const AdminDashboardPage: React.FC = () => {
       fetchLiveStats();
     } catch (err: any) {
       showToast('Rejection Processed', err.message || 'Registration rejected.', 'info');
+    }
+  };
+
+  // Handle Toggle User Status (Suspend / Reactivate)
+  const handleToggleStatus = async (targetUser: User) => {
+    if (!user) return;
+    try {
+      await adminService.toggleUserStatus(targetUser.id, user);
+      showToast(
+        'Status Updated',
+        `User ${targetUser.name} is now ${targetUser.status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE'}.`,
+        'info'
+      );
+      await refreshUsers();
+      fetchLiveStats();
+    } catch (err: any) {
+      showToast('Status Update Failed', err.message || 'Unable to update status.', 'error');
     }
   };
 
@@ -248,35 +309,35 @@ export const AdminDashboardPage: React.FC = () => {
         actorId: 'usr-3',
         actorName: 'Vikram Singh',
         actorEmail: 'vikram@example.com',
-        actorRole: 'VIEWER' as UserRole,
-        action: 'Document Downloaded',
-        targetResourceId: 'doc-3',
-        targetResourceName: 'Design_Doc.pdf',
+        actorRole: 'OWNER' as UserRole,
+        action: 'Folder Created',
+        targetResourceId: 'fld-3',
+        targetResourceName: 'HR Documents',
         severity: 'INFO' as const,
         outcome: 'SUCCESS' as const,
-        ipAddress: '192.168.1.42',
+        ipAddress: '192.168.1.25',
         userAgent: 'Firefox',
       },
       {
         id: 'log-4',
-        timestamp: '2025-04-27T11:18:00Z',
+        timestamp: '2025-04-27T11:15:00Z',
         actorId: 'usr-4',
-        actorName: 'Anjali Rao',
-        actorEmail: 'anjali@example.com',
-        actorRole: 'OWNER' as UserRole,
-        action: 'Permission Revoked',
+        actorName: 'Priya Patel',
+        actorEmail: 'priya@example.com',
+        actorRole: 'VIEWER' as UserRole,
+        action: 'Document Shared',
         targetResourceId: 'doc-4',
-        targetResourceName: 'Marketing Plan.docx',
+        targetResourceName: 'Marketing_Q1.pdf',
         severity: 'INFO' as const,
         outcome: 'SUCCESS' as const,
-        ipAddress: '192.168.1.18',
-        userAgent: 'Chrome',
+        ipAddress: '192.168.1.40',
+        userAgent: 'Edge',
       },
       {
         id: 'log-5',
-        timestamp: '2025-04-27T10:05:00Z',
-        actorId: 'admin-1',
-        actorName: 'Admin',
+        timestamp: '2025-04-27T10:02:00Z',
+        actorId: 'usr-admin',
+        actorName: 'System Administrator',
         actorEmail: 'admin@trustvault.com',
         actorRole: 'ADMIN' as UserRole,
         action: 'Owner Approved',
@@ -338,16 +399,499 @@ export const AdminDashboardPage: React.FC = () => {
   const viewerPct = Math.round((viewerCount / totalUsersCount) * 100) || 46;
   const pendingPct = 100 - ownerPct - viewerPct;
 
-  // Donut stroke-dasharray values (circumference = 2 * PI * r = 2 * 3.14159 * 40 = 251.32)
   const circumference = 251.32;
   const ownerDash = (ownerPct / 100) * circumference;
   const viewerDash = (viewerPct / 100) * circumference;
   const pendingDash = (pendingPct / 100) * circumference;
 
+  // ==========================================================================
+  // VIEW 1: DEDICATED OWNER APPROVALS MANAGEMENT SCREEN (/admin/approvals)
+  // ==========================================================================
+  if (isApprovalsRoute) {
+    return (
+      <div className="space-y-6 text-slate-100 font-sans pb-12 animate-in fade-in duration-300">
+        {/* Navigation Breadcrumb */}
+        <div className="flex items-center gap-2 text-xs text-slate-400">
+          <Link
+            to="/admin/dashboard"
+            className="flex items-center gap-1.5 hover:text-emerald-400 transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Dashboard</span>
+          </Link>
+          <span>/</span>
+          <span className="text-white font-medium">Owner Approvals</span>
+        </div>
+
+        {/* Page Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
+                <UserCheck className="w-7 h-7 text-amber-400" />
+                Owner Registration Approvals
+              </h1>
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                {pendingApprovalsDisplay.length} Pending Review
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-2xl">
+              Review and authorize pending Document Owner accounts. Approved owners gain full cryptographic vault creation, document upload, and discretionary delegation privileges.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                refreshUsers();
+                fetchLiveStats();
+              }}
+              className="px-3.5 py-2 rounded-xl bg-[#0D121F] border border-[#1E2638] hover:border-slate-700 text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Refresh Queue</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Quick Metric Badges */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+          <div className="p-4 rounded-xl bg-[#0B101D] border border-[#161F33] flex items-center justify-between">
+            <div>
+              <span className="text-xs text-slate-400 font-medium">Pending Requests</span>
+              <div className="text-2xl font-extrabold text-amber-400 mt-1">
+                {pendingApprovalsDisplay.length}
+              </div>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+              <Clock className="w-5 h-5" />
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl bg-[#0B101D] border border-[#161F33] flex items-center justify-between">
+            <div>
+              <span className="text-xs text-slate-400 font-medium">Authorized Owners</span>
+              <div className="text-2xl font-extrabold text-emerald-400 mt-1">
+                {stats.approvedOwners}
+              </div>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+              <Shield className="w-5 h-5" />
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl bg-[#0B101D] border border-[#161F33] flex items-center justify-between">
+            <div>
+              <span className="text-xs text-slate-400 font-medium">Approval Policy</span>
+              <div className="text-sm font-bold text-white mt-1">Administrator Manual Signoff</div>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+          </div>
+        </div>
+
+        {/* Pending Approvals Table Card */}
+        <div className="p-6 rounded-2xl bg-[#0B101D] border border-[#161F33] shadow-lg shadow-black/20 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <h2 className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2">
+              <Clock className="w-5 h-5 text-amber-400" />
+              Pending Owner Applications
+            </h2>
+
+            {/* Search Box */}
+            <div className="relative w-full sm:w-72">
+              <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+              <input
+                type="text"
+                placeholder="Search by name, email, or mobile..."
+                value={approvalsSearch}
+                onChange={(e) => setApprovalsSearch(e.target.value)}
+                className="w-full bg-[#0D121F] border border-[#1E2638] rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition-colors"
+              />
+            </div>
+          </div>
+
+          <div className="overflow-x-auto rounded-xl border border-slate-800/80">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#090D18] text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+                <tr>
+                  <th className="py-3.5 px-4 font-semibold">Applicant</th>
+                  <th className="py-3.5 px-4 font-semibold">Mobile Number</th>
+                  <th className="py-3.5 px-4 font-semibold">Requested Role</th>
+                  <th className="py-3.5 px-4 font-semibold">Verification Status</th>
+                  <th className="py-3.5 px-4 font-semibold">Registered On</th>
+                  <th className="py-3.5 px-4 font-semibold text-right pr-4">Admin Decision</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 text-slate-300">
+                {filteredApprovals.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-12 text-center">
+                      <div className="flex flex-col items-center justify-center space-y-2">
+                        <CheckCircle2 className="w-10 h-10 text-emerald-400/60" />
+                        <p className="text-sm font-semibold text-white">All Caught Up!</p>
+                        <p className="text-xs text-slate-500 max-w-sm">
+                          There are currently no pending Document Owner registration requests awaiting administrator authorization.
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredApprovals.map((item) => (
+                    <tr key={item.id} className="hover:bg-slate-900/40 transition-colors">
+                      <td className="py-3.5 px-4">
+                        <div className="font-bold text-white">{item.name}</div>
+                        <div className="text-[11px] text-slate-400 font-mono">{item.email}</div>
+                      </td>
+                      <td className="py-3.5 px-4 font-mono text-slate-300">
+                        {item.phone || '+91 9876543210'}
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <span className="inline-block px-2.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                          Document Owner
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            <CheckCircle2 className="w-3 h-3" /> Email Verified
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-4 text-slate-400">
+                        {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '26 Apr 2025'}
+                      </td>
+                      <td className="py-3.5 px-4 text-right pr-4">
+                        <div className="inline-flex items-center gap-2">
+                          <button
+                            onClick={() => handleApprove(item.id, item.name)}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs flex items-center gap-1 shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Approve</span>
+                          </button>
+                          <button
+                            onClick={() => handleReject(item.id, item.name)}
+                            className="px-3 py-1.5 rounded-lg bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/40 text-rose-300 font-semibold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            <span>Reject</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Recently Approved Owners Section */}
+        {approvedOwnersList.length > 0 && (
+          <div className="p-6 rounded-2xl bg-[#0B101D] border border-[#161F33] space-y-4">
+            <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+              Recently Approved Document Owners ({approvedOwnersList.length})
+            </h2>
+            <div className="overflow-x-auto rounded-xl border border-slate-800/80">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#090D18] text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+                  <tr>
+                    <th className="py-2.5 px-4 font-semibold">Owner</th>
+                    <th className="py-2.5 px-4 font-semibold">Mobile</th>
+                    <th className="py-2.5 px-4 font-semibold">Status</th>
+                    <th className="py-2.5 px-4 font-semibold">Approved By</th>
+                    <th className="py-2.5 px-4 font-semibold text-right pr-4">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60 text-slate-300">
+                  {approvedOwnersList.slice(0, 5).map((owner) => (
+                    <tr key={owner.id} className="hover:bg-slate-900/40 transition-colors">
+                      <td className="py-2.5 px-4">
+                        <div className="font-semibold text-white">{owner.name}</div>
+                        <div className="text-[11px] text-slate-400 font-mono">{owner.email}</div>
+                      </td>
+                      <td className="py-2.5 px-4 font-mono text-slate-400">{owner.phone || '+91 9876543210'}</td>
+                      <td className="py-2.5 px-4">
+                        <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                          Active & Approved
+                        </span>
+                      </td>
+                      <td className="py-2.5 px-4 text-slate-400">{owner.approvedBy || 'System Administrator'}</td>
+                      <td className="py-2.5 px-4 text-right pr-4">
+                        <button
+                          onClick={() => handleToggleStatus(owner)}
+                          className="text-[11px] text-slate-400 hover:text-rose-400 transition-colors"
+                        >
+                          Suspend Access
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ==========================================================================
+  // VIEW 2: DEDICATED USER MANAGEMENT DIRECTORY SCREEN (/admin/users)
+  // ==========================================================================
+  if (isUsersRoute) {
+    return (
+      <div className="space-y-6 text-slate-100 font-sans pb-12 animate-in fade-in duration-300">
+        {/* Navigation Breadcrumb */}
+        <div className="flex items-center gap-2 text-xs text-slate-400">
+          <Link
+            to="/admin/dashboard"
+            className="flex items-center gap-1.5 hover:text-emerald-400 transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>Back to Dashboard</span>
+          </Link>
+          <span>/</span>
+          <span className="text-white font-medium">User Management</span>
+        </div>
+
+        {/* Page Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
+              <Users className="w-7 h-7 text-emerald-400" />
+              User Management Directory
+            </h1>
+            <p className="text-xs sm:text-sm text-slate-400 mt-1 max-w-2xl">
+              Inspect, manage roles, approve registrations, or suspend access credentials for all TrustVault corporate accounts.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                refreshUsers();
+                fetchLiveStats();
+              }}
+              className="px-3.5 py-2 rounded-xl bg-[#0D121F] border border-[#1E2638] hover:border-slate-700 text-xs font-semibold text-slate-300 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Refresh Directory</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Metric Summary Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+          <div className="p-4 rounded-xl bg-[#0B101D] border border-[#161F33]">
+            <span className="text-xs text-slate-400 font-medium">Total Users</span>
+            <div className="text-2xl font-extrabold text-white mt-1">{stats.totalUsers}</div>
+          </div>
+          <div className="p-4 rounded-xl bg-[#0B101D] border border-[#161F33]">
+            <span className="text-xs text-slate-400 font-medium">Document Owners</span>
+            <div className="text-2xl font-extrabold text-emerald-400 mt-1">{stats.approvedOwners}</div>
+          </div>
+          <div className="p-4 rounded-xl bg-[#0B101D] border border-[#161F33]">
+            <span className="text-xs text-slate-400 font-medium">Registered Viewers</span>
+            <div className="text-2xl font-extrabold text-purple-400 mt-1">{stats.registeredViewers}</div>
+          </div>
+          <div className="p-4 rounded-xl bg-[#0B101D] border border-[#161F33]">
+            <span className="text-xs text-slate-400 font-medium">Pending Approvals</span>
+            <div className="text-2xl font-extrabold text-amber-400 mt-1">{stats.pendingOwners}</div>
+          </div>
+        </div>
+
+        {/* Filters Toolbar */}
+        <div className="p-4 rounded-2xl bg-[#0B101D] border border-[#161F33] flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[240px]">
+            <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+            <input
+              type="text"
+              placeholder="Search users by name, corporate email, or mobile..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-[#0D121F] border border-[#1E2638] rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500 transition-colors"
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <select
+              value={filterRole}
+              onChange={(e) => setFilterRole(e.target.value as any)}
+              className="bg-[#0D121F] border border-[#1E2638] rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-emerald-500 cursor-pointer"
+            >
+              <option value="ALL">All Roles</option>
+              <option value="OWNER">Document Owners</option>
+              <option value="VIEWER">Viewers</option>
+              <option value="ADMIN">Administrators</option>
+            </select>
+
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value as any)}
+              className="bg-[#0D121F] border border-[#1E2638] rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-emerald-500 cursor-pointer"
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="ACTIVE">Active</option>
+              <option value="PENDING_APPROVAL">Pending Approval</option>
+              <option value="SUSPENDED">Suspended</option>
+              <option value="REJECTED">Rejected</option>
+            </select>
+
+            {(searchQuery || filterRole !== 'ALL' || filterStatus !== 'ALL') && (
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setFilterRole('ALL');
+                  setFilterStatus('ALL');
+                }}
+                className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-xs text-slate-400 hover:text-white transition-colors cursor-pointer"
+              >
+                Reset Filters
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Comprehensive Users Table */}
+        <div className="p-6 rounded-2xl bg-[#0B101D] border border-[#161F33] shadow-lg shadow-black/20 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+              <Users className="w-5 h-5 text-emerald-400" />
+              Registered Accounts ({filteredUsers.length})
+            </h2>
+            <span className="text-xs text-slate-400">
+              Showing {filteredUsers.length} of {allUsers.length} total
+            </span>
+          </div>
+
+          <div className="overflow-x-auto rounded-xl border border-slate-800/80">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#090D18] text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
+                <tr>
+                  <th className="py-3 px-4 font-semibold">User</th>
+                  <th className="py-3 px-4 font-semibold">Role</th>
+                  <th className="py-3 px-4 font-semibold">Status</th>
+                  <th className="py-3 px-4 font-semibold">Mobile</th>
+                  <th className="py-3 px-4 font-semibold">Registered On</th>
+                  <th className="py-3 px-4 font-semibold text-right pr-4">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60 text-slate-300">
+                {filteredUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-10 text-center text-slate-500">
+                      No registered users found matching the selected filters.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredUsers.map((u) => {
+                    const isSelf = user?.id === u.id;
+                    return (
+                      <tr key={u.id} className="hover:bg-slate-900/40 transition-colors">
+                        <td className="py-3.5 px-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-emerald-400 text-xs">
+                              {u.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="font-bold text-white flex items-center gap-2">
+                                <span>{u.name}</span>
+                                {isSelf && (
+                                  <span className="px-1.5 py-0.2 rounded text-[9px] bg-slate-800 text-slate-400 font-normal">
+                                    You
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] text-slate-400 font-mono">{u.email}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span
+                            className={`inline-block px-2.5 py-0.5 rounded text-[10px] font-bold ${
+                              u.role === 'ADMIN'
+                                ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
+                                : u.role === 'OWNER'
+                                ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                                : 'bg-blue-500/15 text-blue-300 border border-blue-500/30'
+                            }`}
+                          >
+                            {u.role === 'OWNER' ? 'Document Owner' : u.role === 'ADMIN' ? 'Administrator' : 'Viewer'}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span
+                            className={`inline-block px-2.5 py-0.5 rounded text-[10px] font-bold ${
+                              u.status === 'ACTIVE'
+                                ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
+                                : u.status === 'PENDING_APPROVAL'
+                                ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
+                                : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                            }`}
+                          >
+                            {u.status}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 font-mono text-slate-400 text-[11px]">
+                          {u.phone || '—'}
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-400">
+                          {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '26 Apr 2025'}
+                        </td>
+                        <td className="py-3.5 px-4 text-right pr-4">
+                          {u.status === 'PENDING_APPROVAL' ? (
+                            <div className="inline-flex items-center gap-1.5">
+                              <button
+                                onClick={() => handleApprove(u.id, u.name)}
+                                className="px-2.5 py-1 rounded bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-[10px] cursor-pointer"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => handleReject(u.id, u.name)}
+                                className="px-2.5 py-1 rounded bg-rose-950/60 border border-rose-800/40 text-rose-400 font-bold text-[10px] cursor-pointer"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          ) : !isSelf && u.role !== 'ADMIN' ? (
+                            <button
+                              onClick={() => handleToggleStatus(u)}
+                              className={`px-2.5 py-1 rounded text-[10px] font-semibold transition-colors cursor-pointer ${
+                                u.status === 'ACTIVE'
+                                  ? 'bg-rose-950/40 hover:bg-rose-900/60 text-rose-400 border border-rose-800/30'
+                                  : 'bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-400 border border-emerald-800/30'
+                              }`}
+                            >
+                              {u.status === 'ACTIVE' ? 'Suspend' : 'Reactivate'}
+                            </button>
+                          ) : (
+                            <span className="text-slate-600 text-xs">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================================================
+  // VIEW 3: EXECUTIVE ADMIN DASHBOARD OVERVIEW (/admin/dashboard or /admin)
+  // ==========================================================================
   return (
-    <div className="space-y-6 text-slate-100 font-sans pb-12">
+    <div className="space-y-6 text-slate-100 font-sans pb-12 animate-in fade-in duration-300">
       {/* ------------------------------------------------------------------ */}
-      {/* PAGE HEADER: Welcome message replacing ADMIN DASHBOARD + Date/Time */}
+      {/* PAGE HEADER: Welcome message + Live Date/Time widget               */}
       {/* ------------------------------------------------------------------ */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
@@ -367,26 +911,21 @@ export const AdminDashboardPage: React.FC = () => {
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* TOP METRIC CARDS WITH PERFECT ROUTING ACCORDING TO SHOWN INFO */}
+      {/* TOP METRIC CARDS WITH DIRECT ROUTING ACCORDING TO USER'S INTENT    */}
       {/* ------------------------------------------------------------------ */}
       <div className="space-y-3.5">
         {/* ROW 1: 4 Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-          {/* 1. Total Users */}
+          {/* 1. Total Users -> Routes directly to dedicated /admin/users screen */}
           <button
-            onClick={() => {
-              setCurrentView('users');
-              setFilterRole('ALL');
-              setFilterStatus('ALL');
-              window.scrollTo({ top: 400, behavior: 'smooth' });
-            }}
-            className="p-5 rounded-2xl bg-[#0B101D] border border-[#161F33] hover:border-blue-500/50 hover:bg-[#0E1526] transition-all text-left group cursor-pointer relative shadow-lg shadow-black/20"
+            onClick={() => navigate('/admin/users')}
+            className="p-5 rounded-2xl bg-[#0B101D] border border-[#161F33] hover:border-emerald-500/50 hover:bg-[#0E1826] transition-all duration-300 text-left group cursor-pointer relative shadow-lg shadow-black/20 card-hover-glow"
           >
             <div className="flex items-center justify-between">
-              <div className="w-11 h-11 rounded-full bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 group-hover:scale-105 transition-transform shadow-md shadow-blue-500/10">
+              <div className="w-11 h-11 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform shadow-md shadow-emerald-500/10">
                 <Users className="w-5 h-5" />
               </div>
-              <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-blue-400 transition-colors" />
+              <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-emerald-400 group-hover:translate-x-1 transition-all" />
             </div>
             <div className="mt-3">
               <span className="text-xs font-medium text-slate-400 block">Total Users</span>
@@ -398,54 +937,20 @@ export const AdminDashboardPage: React.FC = () => {
                   ↑ 12%
                 </span>
               </div>
-              <span className="text-[10px] text-slate-500 mt-0.5 block">vs. last 7 days</span>
+              <span className="text-[10px] text-slate-500 mt-0.5 block">vs. last month</span>
             </div>
           </button>
 
-          {/* 2. Pending Owner Approvals */}
+          {/* 2. Approved Owners -> Routes to /admin/users?role=OWNER */}
           <button
-            onClick={() => {
-              setCurrentView('approvals');
-              const el = document.getElementById('pending-approvals-section');
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
-            }}
-            className="p-5 rounded-2xl bg-[#0B101D] border border-[#161F33] hover:border-amber-500/50 hover:bg-[#0E1526] transition-all text-left group cursor-pointer relative shadow-lg shadow-black/20"
+            onClick={() => navigate('/admin/users?role=OWNER')}
+            className="p-5 rounded-2xl bg-[#0B101D] border border-[#161F33] hover:border-emerald-500/50 hover:bg-[#0E1826] transition-all duration-300 text-left group cursor-pointer relative shadow-lg shadow-black/20 card-hover-glow"
           >
             <div className="flex items-center justify-between">
-              <div className="w-11 h-11 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:scale-105 transition-transform shadow-md shadow-amber-500/10">
-                <UserCheck className="w-5 h-5" />
-              </div>
-              <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-amber-400 transition-colors" />
-            </div>
-            <div className="mt-3">
-              <span className="text-xs font-medium text-slate-400 block">Pending Owner Approvals</span>
-              <div className="flex items-baseline gap-2.5 mt-1">
-                <span className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-                  {stats.pendingOwners}
-                </span>
-                <span className="text-[11px] font-semibold text-emerald-400 flex items-center">
-                  ↓ 25%
-                </span>
-              </div>
-              <span className="text-[10px] text-slate-500 mt-0.5 block">vs. last 7 days</span>
-            </div>
-          </button>
-
-          {/* 3. Approved Owners */}
-          <button
-            onClick={() => {
-              setCurrentView('users');
-              setFilterRole('OWNER');
-              setFilterStatus('ACTIVE');
-              window.scrollTo({ top: 400, behavior: 'smooth' });
-            }}
-            className="p-5 rounded-2xl bg-[#0B101D] border border-[#161F33] hover:border-emerald-500/50 hover:bg-[#0E1526] transition-all text-left group cursor-pointer relative shadow-lg shadow-black/20"
-          >
-            <div className="flex items-center justify-between">
-              <div className="w-11 h-11 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-105 transition-transform shadow-md shadow-emerald-500/10">
+              <div className="w-11 h-11 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform shadow-md shadow-emerald-500/10">
                 <CheckCircle2 className="w-5 h-5" />
               </div>
-              <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-emerald-400 transition-colors" />
+              <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-emerald-400 group-hover:translate-x-1 transition-all" />
             </div>
             <div className="mt-3">
               <span className="text-xs font-medium text-slate-400 block">Approved Owners</span>
@@ -454,56 +959,76 @@ export const AdminDashboardPage: React.FC = () => {
                   {stats.approvedOwners}
                 </span>
                 <span className="text-[11px] font-semibold text-emerald-400 flex items-center">
-                  ↑ 9%
+                  ↑ 8%
                 </span>
               </div>
-              <span className="text-[10px] text-slate-500 mt-0.5 block">vs. last 7 days</span>
+              <span className="text-[10px] text-slate-500 mt-0.5 block">Active Document Owners</span>
             </div>
           </button>
 
-          {/* 4. Viewers */}
+          {/* 3. Registered Viewers -> Routes to /admin/users?role=VIEWER */}
           <button
-            onClick={() => {
-              setCurrentView('users');
-              setFilterRole('VIEWER');
-              setFilterStatus('ALL');
-              window.scrollTo({ top: 400, behavior: 'smooth' });
-            }}
-            className="p-5 rounded-2xl bg-[#0B101D] border border-[#161F33] hover:border-purple-500/50 hover:bg-[#0E1526] transition-all text-left group cursor-pointer relative shadow-lg shadow-black/20"
+            onClick={() => navigate('/admin/users?role=VIEWER')}
+            className="p-5 rounded-2xl bg-[#0B101D] border border-[#161F33] hover:border-purple-500/50 hover:bg-[#150F24] transition-all duration-300 text-left group cursor-pointer relative shadow-lg shadow-black/20 card-hover-glow"
           >
             <div className="flex items-center justify-between">
-              <div className="w-11 h-11 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 group-hover:scale-105 transition-transform shadow-md shadow-purple-500/10">
+              <div className="w-11 h-11 rounded-full bg-purple-500/20 border border-purple-500/30 flex items-center justify-center text-purple-400 group-hover:scale-110 transition-transform shadow-md shadow-purple-500/10">
                 <Eye className="w-5 h-5" />
               </div>
-              <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-purple-400 transition-colors" />
+              <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-purple-400 group-hover:translate-x-1 transition-all" />
             </div>
             <div className="mt-3">
-              <span className="text-xs font-medium text-slate-400 block">Viewers</span>
+              <span className="text-xs font-medium text-slate-400 block">Registered Viewers</span>
               <div className="flex items-baseline gap-2.5 mt-1">
                 <span className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
                   {stats.registeredViewers}
                 </span>
-                <span className="text-[11px] font-semibold text-emerald-400 flex items-center">
+                <span className="text-[11px] font-semibold text-purple-400 flex items-center">
                   ↑ 18%
                 </span>
               </div>
-              <span className="text-[10px] text-slate-500 mt-0.5 block">vs. last 7 days</span>
+              <span className="text-[10px] text-slate-500 mt-0.5 block">Recipient Accounts</span>
+            </div>
+          </button>
+
+          {/* 4. Pending Approvals -> Routes directly to dedicated /admin/approvals screen */}
+          <button
+            onClick={() => navigate('/admin/approvals')}
+            className="p-5 rounded-2xl bg-[#0B101D] border border-[#161F33] hover:border-amber-500/50 hover:bg-[#1A1610] transition-all duration-300 text-left group cursor-pointer relative shadow-lg shadow-black/20 card-hover-glow"
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-11 h-11 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform shadow-md shadow-amber-500/10">
+                <Clock className="w-5 h-5" />
+              </div>
+              <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-amber-400 group-hover:translate-x-1 transition-all" />
+            </div>
+            <div className="mt-3">
+              <span className="text-xs font-medium text-slate-400 block">Pending Approvals</span>
+              <div className="flex items-baseline gap-2.5 mt-1">
+                <span className="text-2xl sm:text-3xl font-extrabold text-amber-400 tracking-tight">
+                  {pendingApprovalsDisplay.length}
+                </span>
+                <span className="text-[11px] font-semibold text-amber-400/90 flex items-center">
+                  Requires Review
+                </span>
+              </div>
+              <span className="text-[10px] text-slate-500 mt-0.5 block">Owner Onboarding</span>
             </div>
           </button>
         </div>
 
         {/* ROW 2: 3 Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-          {/* 5. Total Documents -> Routes to /documents */}
+          {/* 5. Total Documents -> Routes to /admin/documents */}
           <button
-            onClick={() => navigate('/documents')}
-            className="p-5 rounded-2xl bg-[#0B101D] border border-[#161F33] hover:border-cyan-500/50 hover:bg-[#0E1526] transition-all text-left group cursor-pointer relative shadow-lg shadow-black/20"
+            onClick={() => navigate('/admin/documents')}
+            className="p-5 rounded-2xl bg-[#0B101D] border border-[#161F33] hover:border-teal-500/50 hover:bg-[#0E1824] transition-all duration-300 text-left group cursor-pointer relative shadow-lg shadow-black/20 card-hover-glow"
           >
             <div className="flex items-center justify-between">
-              <div className="w-11 h-11 rounded-full bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400 group-hover:scale-105 transition-transform shadow-md shadow-cyan-500/10">
+              <div className="w-11 h-11 rounded-full bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-teal-400 group-hover:scale-110 transition-transform shadow-md shadow-teal-500/10">
                 <FileText className="w-5 h-5" />
               </div>
-              <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-cyan-400 transition-colors" />
+              <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-teal-400 group-hover:translate-x-1 transition-all" />
             </div>
             <div className="mt-3">
               <span className="text-xs font-medium text-slate-400 block">Total Documents</span>
@@ -519,16 +1044,16 @@ export const AdminDashboardPage: React.FC = () => {
             </div>
           </button>
 
-          {/* 6. Denied Access Attempts -> Routes to /audit */}
+          {/* 6. Denied Access Attempts -> Routes to /admin/audit-logs?outcome=DENIED */}
           <button
-            onClick={() => navigate('/audit?outcome=DENIED')}
-            className="p-5 rounded-2xl bg-[#0B101D] border border-[#161F33] hover:border-rose-500/50 hover:bg-[#0E1526] transition-all text-left group cursor-pointer relative shadow-lg shadow-black/20"
+            onClick={() => navigate('/admin/audit-logs?outcome=DENIED')}
+            className="p-5 rounded-2xl bg-[#0B101D] border border-[#161F33] hover:border-rose-500/50 hover:bg-[#1E1119] transition-all duration-300 text-left group cursor-pointer relative shadow-lg shadow-black/20 card-hover-glow"
           >
             <div className="flex items-center justify-between">
-              <div className="w-11 h-11 rounded-full bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400 group-hover:scale-105 transition-transform shadow-md shadow-rose-500/10">
+              <div className="w-11 h-11 rounded-full bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-rose-400 group-hover:scale-110 transition-transform shadow-md shadow-rose-500/10">
                 <ShieldAlert className="w-5 h-5" />
               </div>
-              <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-rose-400 transition-colors" />
+              <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-rose-400 group-hover:translate-x-1 transition-all" />
             </div>
             <div className="mt-3">
               <span className="text-xs font-medium text-slate-400 block">Denied Access Attempts</span>
@@ -544,16 +1069,16 @@ export const AdminDashboardPage: React.FC = () => {
             </div>
           </button>
 
-          {/* 7. Security Alerts -> Routes to /security */}
+          {/* 7. Security Alerts -> Routes to /admin/security */}
           <button
-            onClick={() => navigate('/security')}
-            className="p-5 rounded-2xl bg-[#0B101D] border border-[#161F33] hover:border-amber-500/50 hover:bg-[#0E1526] transition-all text-left group cursor-pointer relative shadow-lg shadow-black/20"
+            onClick={() => navigate('/admin/security')}
+            className="p-5 rounded-2xl bg-[#0B101D] border border-[#161F33] hover:border-amber-500/50 hover:bg-[#1C160F] transition-all duration-300 text-left group cursor-pointer relative shadow-lg shadow-black/20 card-hover-glow"
           >
             <div className="flex items-center justify-between">
-              <div className="w-11 h-11 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:scale-105 transition-transform shadow-md shadow-amber-500/10">
+              <div className="w-11 h-11 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform shadow-md shadow-amber-500/10">
                 <AlertTriangle className="w-5 h-5" />
               </div>
-              <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-amber-400 transition-colors" />
+              <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-amber-400 group-hover:translate-x-1 transition-all" />
             </div>
             <div className="mt-3">
               <span className="text-xs font-medium text-slate-400 block">Security Alerts</span>
@@ -572,143 +1097,7 @@ export const AdminDashboardPage: React.FC = () => {
       </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* USER MANAGEMENT VIEW (Triggered when user clicks Total Users, etc.) */}
-      {/* ------------------------------------------------------------------ */}
-      {currentView === 'users' && (
-        <div className="p-6 rounded-2xl bg-[#0B101D] border border-[#161F33] space-y-4 animate-in fade-in duration-300">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <Users className="w-5 h-5 text-blue-400" />
-                User Management Directory
-              </h2>
-              <p className="text-xs text-slate-400">Search, filter, approve, or manage account roles and statuses.</p>
-            </div>
-            <button
-              onClick={() => setCurrentView('overview')}
-              className="text-xs font-semibold text-slate-400 hover:text-white px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
-            >
-              <X className="w-3.5 h-3.5" /> Close Directory
-            </button>
-          </div>
-
-          {/* Filters Bar */}
-          <div className="flex flex-wrap items-center gap-3 pt-2">
-            <div className="relative flex-1 min-w-[200px]">
-              <Search className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
-              <input
-                type="text"
-                placeholder="Search by name, email, or mobile..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#0D121F] border border-[#1E2638] rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-              />
-            </div>
-            <select
-              value={filterRole}
-              onChange={(e) => setFilterRole(e.target.value as any)}
-              className="bg-[#0D121F] border border-[#1E2638] rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none"
-            >
-              <option value="ALL">All Roles</option>
-              <option value="OWNER">Document Owners</option>
-              <option value="VIEWER">Viewers</option>
-              <option value="ADMIN">Administrators</option>
-            </select>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as any)}
-              className="bg-[#0D121F] border border-[#1E2638] rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none"
-            >
-              <option value="ALL">All Statuses</option>
-              <option value="ACTIVE">Active</option>
-              <option value="PENDING_APPROVAL">Pending Approval</option>
-              <option value="SUSPENDED">Suspended</option>
-              <option value="REJECTED">Rejected</option>
-            </select>
-          </div>
-
-          {/* Users Table */}
-          <div className="overflow-x-auto rounded-xl border border-slate-800/80">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#090D18] text-slate-400 uppercase text-[10px] tracking-wider border-b border-slate-800">
-                <tr>
-                  <th className="py-3 px-4 font-semibold">User</th>
-                  <th className="py-3 px-4 font-semibold">Role</th>
-                  <th className="py-3 px-4 font-semibold">Status</th>
-                  <th className="py-3 px-4 font-semibold">Registered On</th>
-                  <th className="py-3 px-4 font-semibold text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60 text-slate-300">
-                {filteredUsers.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-8 text-center text-slate-500">
-                      No registered users matching this filter.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredUsers.map((u) => (
-                    <tr key={u.id} className="hover:bg-slate-900/40 transition-colors">
-                      <td className="py-3 px-4">
-                        <div className="font-bold text-white">{u.name}</div>
-                        <div className="text-[11px] text-slate-400">{u.email}</div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className={`inline-block px-2.5 py-0.5 rounded text-[10px] font-bold ${
-                          u.role === 'ADMIN'
-                            ? 'bg-purple-500/15 text-purple-400 border border-purple-500/30'
-                            : u.role === 'OWNER'
-                            ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                            : 'bg-blue-500/15 text-blue-400 border border-blue-500/30'
-                        }`}>
-                          {u.role}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className={`inline-block px-2.5 py-0.5 rounded text-[10px] font-bold ${
-                          u.status === 'ACTIVE'
-                            ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                            : u.status === 'PENDING_APPROVAL'
-                            ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
-                            : 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
-                        }`}>
-                          {u.status}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-slate-400">
-                        {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '26 Apr 2025'}
-                      </td>
-                      <td className="py-3 px-4 text-right">
-                        {u.status === 'PENDING_APPROVAL' ? (
-                          <div className="inline-flex items-center gap-1.5">
-                            <button
-                              onClick={() => handleApprove(u.id, u.name)}
-                              className="px-2.5 py-1 rounded bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-[10px] cursor-pointer"
-                            >
-                              Approve
-                            </button>
-                            <button
-                              onClick={() => handleReject(u.id, u.name)}
-                              className="px-2.5 py-1 rounded bg-rose-950/60 border border-rose-800/40 text-rose-400 font-bold text-[10px] cursor-pointer"
-                            >
-                              Reject
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-slate-500 text-xs">—</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* ------------------------------------------------------------------ */}
-      {/* MIDDLE SECTION: Pending Owner Approvals Table (Left) + User Overview (Right) */}
+      {/* MIDDLE SECTION: Pending Owner Approvals Table (Left) + Donut (Right) */}
       {/* ------------------------------------------------------------------ */}
       <div id="pending-approvals-section" className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* LEFT: Pending Owner Approvals Table (~65% width) */}
@@ -719,13 +1108,11 @@ export const AdminDashboardPage: React.FC = () => {
                 Pending Owner Approvals
               </h2>
               <button
-                onClick={() => {
-                  setCurrentView('users');
-                  setFilterStatus('PENDING_APPROVAL');
-                }}
-                className="text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors cursor-pointer"
+                onClick={() => navigate('/admin/approvals')}
+                className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer flex items-center gap-1"
               >
-                View All
+                <span>View All</span>
+                <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
 
@@ -748,24 +1135,24 @@ export const AdminDashboardPage: React.FC = () => {
                       <td className="py-3.5 text-slate-400 font-mono text-[11px]">{item.email}</td>
                       <td className="py-3.5 text-slate-400">{item.phone || '+91 9876543210'}</td>
                       <td className="py-3.5 text-slate-400">
-                        {item.createdAt ? new Date(item.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '26 Apr 2025'}
+                        {item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '26 Apr 2025'}
                       </td>
                       <td className="py-3.5">
-                        <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-[#B45309]/20 text-[#FBBF24] border border-amber-500/30">
+                        <span className="inline-block px-2.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30">
                           Pending
                         </span>
                       </td>
-                      <td className="py-3.5 text-right pr-1">
+                      <td className="py-3.5 text-right pr-2">
                         <div className="inline-flex items-center gap-2">
                           <button
                             onClick={() => handleApprove(item.id, item.name)}
-                            className="px-3 py-1 rounded-md text-xs font-semibold bg-[#10B981] hover:bg-[#059669] text-white shadow-sm transition-all cursor-pointer"
+                            className="px-2.5 py-1 rounded-md bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-[10px] transition-colors cursor-pointer shadow-sm shadow-emerald-500/20"
                           >
                             Approve
                           </button>
                           <button
                             onClick={() => handleReject(item.id, item.name)}
-                            className="px-3 py-1 rounded-md text-xs font-semibold bg-[#2E1219] hover:bg-[#451420] text-[#F43F5E] border border-rose-900/50 shadow-sm transition-all cursor-pointer"
+                            className="px-2.5 py-1 rounded-md bg-rose-950/60 hover:bg-rose-900/80 border border-rose-800/40 text-rose-300 font-bold text-[10px] transition-colors cursor-pointer"
                           >
                             Reject
                           </button>
@@ -777,24 +1164,45 @@ export const AdminDashboardPage: React.FC = () => {
               </table>
             </div>
           </div>
+
+          <div className="mt-4 pt-3 border-t border-[#161F33] flex items-center justify-between text-xs text-slate-500">
+            <span>Showing {pendingApprovalsDisplay.length} pending registration requests</span>
+            <button
+              onClick={() => navigate('/admin/approvals')}
+              className="text-emerald-400 hover:underline font-medium text-[11px] cursor-pointer"
+            >
+              Open Approvals Manager →
+            </button>
+          </div>
         </div>
 
         {/* RIGHT: User Overview Donut Chart (~35% width) */}
         <div className="lg:col-span-4 p-5 sm:p-6 rounded-2xl bg-[#0B101D] border border-[#161F33] shadow-lg shadow-black/20 flex flex-col justify-between">
-          <h2 className="text-base sm:text-lg font-bold text-white tracking-tight mb-4">
-            User Overview
-          </h2>
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
+                User Overview
+              </h2>
+              <button
+                onClick={() => navigate('/admin/users')}
+                className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer"
+              >
+                Manage
+              </button>
+            </div>
+            <p className="text-xs text-slate-400">Total registered accounts breakdown</p>
+          </div>
 
-          <div className="flex flex-col sm:flex-row lg:flex-row items-center justify-around gap-6 my-auto">
-            {/* Donut SVG */}
+          {/* SVG Donut Chart */}
+          <div className="my-6 flex flex-col sm:flex-row items-center justify-center gap-6">
             <div className="relative w-36 h-36 flex items-center justify-center shrink-0">
-              <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+              <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
                 {/* Background Ring */}
                 <circle
                   cx="50"
                   cy="50"
                   r="40"
-                  className="stroke-slate-800"
+                  className="stroke-[#131B2E]"
                   strokeWidth="12"
                   fill="none"
                 />
@@ -810,12 +1218,12 @@ export const AdminDashboardPage: React.FC = () => {
                   strokeLinecap="round"
                   fill="none"
                 />
-                {/* Viewers segment (Blue) */}
+                {/* Viewers segment (Purple) */}
                 <circle
                   cx="50"
                   cy="50"
                   r="40"
-                  className="stroke-blue-500 transition-all duration-1000"
+                  className="stroke-purple-500 transition-all duration-1000"
                   strokeWidth="12"
                   strokeDasharray={`${viewerDash} ${circumference}`}
                   strokeDashoffset={-ownerDash}
@@ -848,7 +1256,10 @@ export const AdminDashboardPage: React.FC = () => {
 
             {/* Legend matching screenshot */}
             <div className="space-y-3.5 text-xs text-slate-300 w-full sm:w-auto">
-              <div className="flex items-center justify-between gap-4">
+              <button
+                onClick={() => navigate('/admin/users?role=OWNER')}
+                className="w-full flex items-center justify-between gap-4 hover:bg-slate-900/60 p-1.5 rounded-lg transition-colors text-left cursor-pointer"
+              >
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0" />
                   <span className="text-slate-300 font-medium">Document Owners</span>
@@ -857,20 +1268,26 @@ export const AdminDashboardPage: React.FC = () => {
                   <span className="font-bold text-white mr-2">{ownerCount}</span>
                   <span className="text-slate-500 text-[11px]">{ownerPct}%</span>
                 </div>
-              </div>
+              </button>
 
-              <div className="flex items-center justify-between gap-4">
+              <button
+                onClick={() => navigate('/admin/users?role=VIEWER')}
+                className="w-full flex items-center justify-between gap-4 hover:bg-slate-900/60 p-1.5 rounded-lg transition-colors text-left cursor-pointer"
+              >
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0" />
+                  <span className="w-2.5 h-2.5 rounded-full bg-purple-500 shrink-0" />
                   <span className="text-slate-300 font-medium">Viewers</span>
                 </div>
                 <div className="text-right">
                   <span className="font-bold text-white mr-2">{viewerCount}</span>
                   <span className="text-slate-500 text-[11px]">{viewerPct}%</span>
                 </div>
-              </div>
+              </button>
 
-              <div className="flex items-center justify-between gap-4">
+              <button
+                onClick={() => navigate('/admin/approvals')}
+                className="w-full flex items-center justify-between gap-4 hover:bg-slate-900/60 p-1.5 rounded-lg transition-colors text-left cursor-pointer"
+              >
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-amber-400 shrink-0" />
                   <span className="text-slate-300 font-medium">Pending Owners</span>
@@ -879,7 +1296,7 @@ export const AdminDashboardPage: React.FC = () => {
                   <span className="font-bold text-white mr-2">{pendingCount}</span>
                   <span className="text-slate-500 text-[11px]">{pendingPct}%</span>
                 </div>
-              </div>
+              </button>
             </div>
           </div>
         </div>
@@ -897,10 +1314,11 @@ export const AdminDashboardPage: React.FC = () => {
                 Recent Audit Logs
               </h2>
               <button
-                onClick={() => navigate('/audit')}
-                className="text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors cursor-pointer"
+                onClick={() => navigate('/admin/audit-logs')}
+                className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors cursor-pointer flex items-center gap-1"
               >
-                View All
+                <span>View All</span>
+                <ChevronRight className="w-3.5 h-3.5" />
               </button>
             </div>
 
@@ -922,7 +1340,19 @@ export const AdminDashboardPage: React.FC = () => {
                     return (
                       <tr key={log.id} className="hover:bg-slate-900/40 transition-colors">
                         <td className="py-3 text-slate-400 whitespace-nowrap text-[11px]">
-                          {log.timestamp ? new Date(log.timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + ' ' + new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '27 Apr 2025 14:21'}
+                          {log.timestamp
+                            ? new Date(log.timestamp).toLocaleDateString('en-GB', {
+                                day: 'numeric',
+                                month: 'short',
+                                year: 'numeric',
+                              }) +
+                              ' ' +
+                              new Date(log.timestamp).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: false,
+                              })
+                            : '27 Apr 2025 14:21'}
                         </td>
                         <td className="py-3 font-semibold text-white whitespace-nowrap">{log.actorName}</td>
                         <td className="py-3 text-slate-400 text-[11px]">{log.actorRole || 'Owner'}</td>
@@ -971,12 +1401,12 @@ export const AdminDashboardPage: React.FC = () => {
 
               <div className="flex items-center justify-between pb-2 border-b border-[#161F33]">
                 <div className="flex items-center gap-2 text-slate-300">
-                  <div className="w-5 h-5 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-400">
+                  <div className="w-5 h-5 rounded-full bg-teal-500/20 flex items-center justify-center text-teal-400">
                     <FileText className="w-3 h-3" />
                   </div>
                   <span>Active Sessions</span>
                 </div>
-                <span className="font-bold text-blue-400">5</span>
+                <span className="font-bold text-teal-400">5</span>
               </div>
 
               <div className="flex items-center justify-between pb-2 border-b border-[#161F33]">
@@ -1022,25 +1452,18 @@ export const AdminDashboardPage: React.FC = () => {
 
             <div className="space-y-2.5">
               <button
-                onClick={() => {
-                  setCurrentView('approvals');
-                  const el = document.getElementById('pending-approvals-section');
-                  if (el) el.scrollIntoView({ behavior: 'smooth' });
-                }}
+                onClick={() => navigate('/admin/approvals')}
                 className="w-full flex items-center justify-between p-3.5 rounded-xl bg-[#0E1426] hover:bg-[#141E38] border border-[#1C2640] text-xs font-semibold text-slate-200 transition-colors group cursor-pointer"
               >
                 <div className="flex items-center gap-3">
-                  <UserCheck className="w-4 h-4 text-blue-400" />
+                  <UserCheck className="w-4 h-4 text-amber-400" />
                   <span>Review Pending Approvals</span>
                 </div>
                 <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-white transition-colors" />
               </button>
 
               <button
-                onClick={() => {
-                  setCurrentView('users');
-                  window.scrollTo({ top: 400, behavior: 'smooth' });
-                }}
+                onClick={() => navigate('/admin/users')}
                 className="w-full flex items-center justify-between p-3.5 rounded-xl bg-[#0E1426] hover:bg-[#141E38] border border-[#1C2640] text-xs font-semibold text-slate-200 transition-colors group cursor-pointer"
               >
                 <div className="flex items-center gap-3">
@@ -1051,7 +1474,7 @@ export const AdminDashboardPage: React.FC = () => {
               </button>
 
               <button
-                onClick={() => navigate('/audit')}
+                onClick={() => navigate('/admin/audit-logs')}
                 className="w-full flex items-center justify-between p-3.5 rounded-xl bg-[#0E1426] hover:bg-[#141E38] border border-[#1C2640] text-xs font-semibold text-slate-200 transition-colors group cursor-pointer"
               >
                 <div className="flex items-center gap-3">
@@ -1062,7 +1485,7 @@ export const AdminDashboardPage: React.FC = () => {
               </button>
 
               <button
-                onClick={() => navigate('/settings')}
+                onClick={() => navigate('/admin/settings')}
                 className="w-full flex items-center justify-between p-3.5 rounded-xl bg-[#0E1426] hover:bg-[#141E38] border border-[#1C2640] text-xs font-semibold text-slate-200 transition-colors group cursor-pointer"
               >
                 <div className="flex items-center gap-3">

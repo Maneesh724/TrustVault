@@ -1,0 +1,2 @@
+SMTP Config: Host=smtp.gmail.com:587, STARTTLS=True, User=maneeshgopisetty@gmail.com
+SUCCESS: Test email successfully sent through smtp.gmail.com:587!

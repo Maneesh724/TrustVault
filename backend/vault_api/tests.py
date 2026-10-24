@@ -200,11 +200,11 @@ class TrustVaultSecurityTests(TestCase):
         }, format='json')
 
         self.assertEqual(res_reg.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(res_reg.data['user']['status'], 'ACTIVE')
+        self.assertEqual(res_reg.data['user']['status'], 'PENDING_APPROVAL')
 
         # Check DB
         new_user = CustomUser.objects.get(email=test_email)
-        self.assertEqual(new_user.status, 'ACTIVE')
+        self.assertEqual(new_user.status, 'PENDING_APPROVAL')
         self.assertTrue(new_user.email_verified)
         self.assertTrue(new_user.phone_verified)
 
@@ -231,7 +231,7 @@ class TrustVaultSecurityTests(TestCase):
         }, format='json')
 
         self.assertEqual(res_login.status_code, status.HTTP_403_FORBIDDEN)
-        self.assertIn('Pending Authorization', res_login.data['error'])
+        self.assertIn('Pending Approval', res_login.data['error'])
 
     def test_login_rejection_suspended(self):
         suspended_user = CustomUser.objects.create(
@@ -415,7 +415,7 @@ class TrustVaultSecurityTests(TestCase):
         }, format='json')
         self.assertEqual(res_reg.status_code, status.HTTP_201_CREATED)
         self.assertEqual(res_reg.data['user']['role'], 'OWNER')
-        self.assertEqual(res_reg.data['user']['status'], 'ACTIVE')
+        self.assertEqual(res_reg.data['user']['status'], 'PENDING_APPROVAL')
 
     def test_controlled_viewer_invitation_registration(self):
         # 1. Owner creates viewer invitation

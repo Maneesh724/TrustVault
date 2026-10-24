@@ -13,7 +13,7 @@ if env_path.exists():
             line = line.strip()
             if line and not line.startswith('#') and '=' in line:
                 key, _, value = line.partition('=')
-                os.environ.setdefault(key.strip(), value.strip())
+                os.environ[key.strip()] = value.strip()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -154,9 +154,9 @@ EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '').strip()
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '').replace(' ', '').strip()
-DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER)
-EMAIL_TIMEOUT = 5  # Prevent hanging when network/ISP blocks SMTP ports
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '').replace(' ', '').strip().strip('"').strip("'")
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL') or EMAIL_HOST_USER
+EMAIL_TIMEOUT = 15  # 15s allowance for TLS handshake over STARTTLS
 
 # AI Security Assistant
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')

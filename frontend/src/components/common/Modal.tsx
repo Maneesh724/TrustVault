@@ -7,7 +7,7 @@ interface ModalProps {
   title: string;
   subtitle?: string;
   children: React.ReactNode;
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '4xl' | '5xl';
 }
 
 export const Modal: React.FC<ModalProps> = ({
@@ -36,30 +36,32 @@ export const Modal: React.FC<ModalProps> = ({
     lg: 'max-w-lg',
     xl: 'max-w-xl',
     '2xl': 'max-w-2xl',
+    '4xl': 'max-w-4xl',
+    '5xl': 'max-w-5xl',
   }[maxWidth];
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 z-50 overflow-y-auto font-sans">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm transition-opacity"
+        className="fixed inset-0 bg-[#04060B]/80 backdrop-blur-md transition-opacity"
         onClick={onClose}
       />
 
       <div className="flex min-h-full items-center justify-center p-4 text-center">
         <div
-          className={`relative w-full ${maxWidthClass} transform rounded-2xl bg-white border border-slate-200 p-6 text-left shadow-2xl transition-all duration-200 animate-in fade-in zoom-in-95`}
+          className={`relative w-full ${maxWidthClass} transform rounded-2xl bg-[#0D1322] border border-[#1E293B] p-6 text-left shadow-2xl transition-all duration-200 animate-in fade-in zoom-in-95 text-slate-100`}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-start justify-between pb-4 border-b border-slate-200">
+          <div className="flex items-start justify-between pb-4 border-b border-[#1E293B]">
             <div>
-              <h3 className="text-base sm:text-lg font-bold text-slate-900">{title}</h3>
-              {subtitle && <p className="text-xs text-slate-500 mt-0.5">{subtitle}</p>}
+              <h3 className="text-base sm:text-lg font-bold text-white">{title}</h3>
+              {subtitle && <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>}
             </div>
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-slate-700 rounded-lg p-1.5 hover:bg-slate-100 transition-colors"
+              className="text-slate-400 hover:text-white rounded-lg p-1.5 hover:bg-slate-800 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
