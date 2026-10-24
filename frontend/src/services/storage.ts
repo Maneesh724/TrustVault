@@ -7,6 +7,7 @@ import {
   INITIAL_THREAT_ALERTS,
   INITIAL_ADMIN_NOTIFICATIONS,
 } from './mockData';
+import { firebaseService } from './firebaseService';
 
 const STORAGE_KEYS = {
   USERS: 'trustvault_users',
@@ -24,8 +25,22 @@ const LEGACY_MOCK_EMAILS = [
   'emily@trustvault.com',
   'david@trustvault.com',
   'elena.rostova@external-audit.com',
-  'alex.morgan@trustvault.com'
+  'alex.morgan@trustvault.com',
 ];
+
+// Seed initial collections to Firebase Firestore in the background
+if (typeof window !== 'undefined') {
+  setTimeout(() => {
+    firebaseService
+      .seedInitialDataIfEmpty(
+        INITIAL_USERS,
+        INITIAL_DOCUMENTS,
+        INITIAL_AUDIT_LOGS,
+        INITIAL_ADMIN_NOTIFICATIONS
+      )
+      .catch(() => {});
+  }, 1000);
+}
 
 export const getStoredUsers = (): User[] => {
   const data = localStorage.getItem(STORAGE_KEYS.USERS);
@@ -36,11 +51,11 @@ export const getStoredUsers = (): User[] => {
   try {
     const parsed: User[] = JSON.parse(data);
     // Filter out obsolete demo credentials, keeping strictly Admin, Owner, and live registered users
-    const filtered = parsed.filter(u => !LEGACY_MOCK_EMAILS.includes(u.email.toLowerCase()));
-    
+    const filtered = parsed.filter((u) => !LEGACY_MOCK_EMAILS.includes(u.email.toLowerCase()));
+
     // Ensure admin and owner are present
-    INITIAL_USERS.forEach(iu => {
-      if (!filtered.some(u => u.email.toLowerCase() === iu.email.toLowerCase())) {
+    INITIAL_USERS.forEach((iu) => {
+      if (!filtered.some((u) => u.email.toLowerCase() === iu.email.toLowerCase())) {
         filtered.push(iu);
       }
     });
@@ -56,6 +71,10 @@ export const getStoredUsers = (): User[] => {
 
 export const setStoredUsers = (users: User[]): void => {
   localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+  // Asynchronously replicate users to Firebase Firestore
+  users.forEach((u) => {
+    firebaseService.syncUser(u).catch(() => {});
+  });
 };
 
 export const getStoredDocuments = (): VaultDocument[] => {
@@ -67,7 +86,7 @@ export const getStoredDocuments = (): VaultDocument[] => {
   try {
     const parsed: VaultDocument[] = JSON.parse(data);
     // Filter out obsolete legacy mock documents
-    const liveDocs = parsed.filter(d => d.id !== 'doc-701' && d.id !== 'doc-702');
+    const liveDocs = parsed.filter((d) => d.id !== 'doc-701' && d.id !== 'doc-702');
     if (liveDocs.length !== parsed.length) {
       localStorage.setItem(STORAGE_KEYS.DOCUMENTS, JSON.stringify(liveDocs));
     }
@@ -79,6 +98,10 @@ export const getStoredDocuments = (): VaultDocument[] => {
 
 export const setStoredDocuments = (docs: VaultDocument[]): void => {
   localStorage.setItem(STORAGE_KEYS.DOCUMENTS, JSON.stringify(docs));
+  // Asynchronously replicate documents to Firebase Firestore
+  docs.forEach((d) => {
+    firebaseService.saveDocument(d).catch(() => {});
+  });
 };
 
 export const getStoredAuditLogs = (): AuditLog[] => {
@@ -89,7 +112,7 @@ export const getStoredAuditLogs = (): AuditLog[] => {
   }
   try {
     const parsed: AuditLog[] = JSON.parse(data);
-    const liveLogs = parsed.filter(l => !l.id.startsWith('audit-00') && !l.id.startsWith('audit-10'));
+    const liveLogs = parsed.filter((l) => !l.id.startsWith('audit-00') && !l.id.startsWith('audit-10'));
     return liveLogs;
   } catch {
     return [];
@@ -100,6 +123,8 @@ export const appendStoredAuditLog = (log: AuditLog): void => {
   const logs = getStoredAuditLogs();
   const updated = [log, ...logs];
   localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(updated));
+  // Asynchronously replicate immutable audit record to Firebase Firestore
+  firebaseService.appendAuditLog(log).catch(() => {});
 };
 
 export const getStoredPolicies = (): SecurityPolicy[] => {
@@ -127,7 +152,7 @@ export const getStoredThreats = (): ThreatAlert[] => {
   }
   try {
     const parsed: ThreatAlert[] = JSON.parse(data);
-    return parsed.filter(t => t.id !== 'thr-1' && t.id !== 'thr-2');
+    return parsed.filter((t) => t.id !== 'thr-1' && t.id !== 'thr-2');
   } catch {
     return [];
   }
@@ -142,7 +167,9 @@ export const getStoredNotifications = (): AdminNotification[] => {
   try {
     const parsed: AdminNotification[] = JSON.parse(data);
     // Filter out old seed notifications
-    return parsed.filter(n => !['notif-1', 'notif-2', 'notif-3', 'notif-4', 'notif-seed-001'].includes(n.id));
+    return parsed.filter(
+      (n) => !['notif-1', 'notif-2', 'notif-3', 'notif-4', 'notif-seed-001'].includes(n.id)
+    );
   } catch {
     return [];
   }
@@ -156,6 +183,8 @@ export const appendStoredNotification = (notif: AdminNotification): void => {
   const notifs = getStoredNotifications();
   const updated = [notif, ...notifs];
   localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(updated));
+  // Asynchronously replicate notification to Firebase Firestore
+  firebaseService.addNotification(notif).catch(() => {});
 };
 
 export const updateStoredNotification = (id: string, updates: Partial<AdminNotification>): void => {
@@ -164,6 +193,9 @@ export const updateStoredNotification = (id: string, updates: Partial<AdminNotif
   if (idx !== -1) {
     notifs[idx] = { ...notifs[idx], ...updates };
     localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifs));
+    if (updates.read) {
+      firebaseService.markNotificationRead(id).catch(() => {});
+    }
   }
 };
 

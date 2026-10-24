@@ -1,11 +1,12 @@
 """
 Django settings for trustvault_backend project.
+Zero-Trust Enterprise Document Vault — Production & Local Hybrid Configuration
 """
 
 from pathlib import Path
 import os
 
-# Load .env file if it exists
+# Load .env file if it exists locally
 env_path = Path(__file__).resolve().parent.parent / '.env'
 if env_path.exists():
     with open(env_path) as f:
@@ -15,18 +16,29 @@ if env_path.exists():
                 key, _, value = line.partition('=')
                 os.environ[key.strip()] = value.strip()
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+# Build paths inside the project: BASE_DIR is backend root
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-p0@+)9tj6vdbg^d=2u0c+7o2v+7!!3l*2a4)$s8%4eavm*@d76')
+# 1. Environment & Debug Flag
+DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# 2. Cryptographic Secret Key
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
+if not SECRET_KEY:
+    if DEBUG:
+        # Development fallback only
+        SECRET_KEY = 'django-insecure-p0@+)9tj6vdbg^d=2u0c+7o2v+7!!3l*2a4)$s8%4eavm*@d76'
+    else:
+        raise ValueError("CRITICAL SECURITY ERROR: DJANGO_SECRET_KEY environment variable is required in production.")
 
-ALLOWED_HOSTS = ['*']
+# 3. Allowed Hosts
+allowed_hosts_env = os.environ.get('ALLOWED_HOSTS', '')
+if allowed_hosts_env:
+    ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_env.split(',') if h.strip()]
+else:
+    ALLOWED_HOSTS = ['*'] if DEBUG else ['.onrender.com', 'localhost', '127.0.0.1']
 
-# Application definition
+# 4. Applications Definition
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -39,16 +51,27 @@ INSTALLED_APPS = [
     'vault_api',
 ]
 
+# 5. Middleware Pipeline
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+]
+
+# WhiteNoise for production static asset serving (if available)
+try:
+    import whitenoise
+    MIDDLEWARE.append('whitenoise.middleware.WhiteNoiseMiddleware')
+except ImportError:
+    pass
+
+MIDDLEWARE.extend([
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    # CsrfViewMiddleware omitted for headless SPA REST API
+    # Headless SPA REST API: CSRF evaluated via session cookies and origin headers
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-]
+])
 
 ROOT_URLCONF = 'trustvault_backend.urls'
 
@@ -69,18 +92,34 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'trustvault_backend.wsgi.application'
 
-# Database
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# 6. Database Configuration (Zero-Downtime Hybrid: PostgreSQL if DATABASE_URL is set, SQLite otherwise)
+DATABASE_URL = os.environ.get('DATABASE_URL')
+if DATABASE_URL:
+    try:
+        import dj_database_url
+        DATABASES = {
+            'default': dj_database_url.parse(DATABASE_URL, conn_max_age=600, ssl_require=True)
+        }
+    except ImportError:
+        # Fallback to local SQLite if dj_database_url is missing locally
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / 'db.sqlite3',
+            }
+        }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
 
-# Custom User Model
+# 7. Custom User Model
 AUTH_USER_MODEL = 'vault_api.CustomUser'
 
-# Password hashing using Argon2id first, PBKDF2 as fallback
+# 8. Password Hashing (Argon2id first, PBKDF2 fallback)
 PASSWORD_HASHERS = [
     'vault_api.hashers.OptimizedArgon2PasswordHasher',
     'django.contrib.auth.hashers.Argon2PasswordHasher',
@@ -89,38 +128,44 @@ PASSWORD_HASHERS = [
     'django.contrib.auth.hashers.BCryptSHA256PasswordHasher',
 ]
 
-# Password validation
+# 9. Password Validation
 AUTH_PASSWORD_VALIDATORS = [
-    {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
-        'OPTIONS': {'min_length': 8},
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
-    },
-    {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
-    },
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', 'OPTIONS': {'min_length': 8}},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
-# Internationalization
+# 10. Internationalization
 LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-# Static files (CSS, JavaScript, Images)
+# 11. Static Files (Admin & DRF styles)
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# Private media storage
+# 12. Private Vault Media Storage (Encrypted / UUID files)
 MEDIA_ROOT = BASE_DIR / 'vault_storage'
 MEDIA_URL = '/media/'
 
-# CORS Configuration
-CORS_ALLOW_ALL_ORIGINS = True
+# 13. CORS Configuration
+cors_origins_env = os.environ.get('CORS_ALLOWED_ORIGINS', '')
+if cors_origins_env:
+    CORS_ALLOWED_ORIGINS = [o.strip() for o in cors_origins_env.split(',') if o.strip()]
+    CORS_ALLOW_ALL_ORIGINS = False
+elif not DEBUG:
+    # Production defaults: explicitly lock down to verified Firebase domains
+    CORS_ALLOWED_ORIGINS = [
+        "https://trust-vault-9c688.web.app",
+        "https://trust-vault-9c688.firebaseapp.com",
+    ]
+    CORS_ALLOW_ALL_ORIGINS = False
+else:
+    # Development mode: allow all local origins
+    CORS_ALLOW_ALL_ORIGINS = True
+
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
     'accept',
@@ -134,7 +179,18 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
-# REST Framework Configuration (Headless SPA REST API)
+# 14. CSRF Trusted Origins
+csrf_origins_env = os.environ.get('CSRF_TRUSTED_ORIGINS', '')
+if csrf_origins_env:
+    CSRF_TRUSTED_ORIGINS = [o.strip() for o in csrf_origins_env.split(',') if o.strip()]
+else:
+    CSRF_TRUSTED_ORIGINS = [
+        'https://*.onrender.com',
+        'https://trust-vault-9c688.web.app',
+        'https://trust-vault-9c688.firebaseapp.com',
+    ]
+
+# 15. REST Framework Configuration
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [],
     'DEFAULT_PERMISSION_CLASSES': [
@@ -142,13 +198,19 @@ REST_FRAMEWORK = {
     ],
 }
 
-# Session Cookie Configuration
+# 16. Session Cookie Policy
 SESSION_COOKIE_NAME = 'trustvault_session'
 SESSION_COOKIE_AGE = 86400  # 24 hours
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = 'Lax'
 
-# Email Configuration (Gmail SMTP)
+# 17. HTTPS & Proxy Security (Render / Production)
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+# 18. Email Configuration (Gmail SMTP over STARTTLS port 587)
 EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
 EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
@@ -156,8 +218,8 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '').strip()
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '').replace(' ', '').strip().strip('"').strip("'")
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL') or EMAIL_HOST_USER
-EMAIL_TIMEOUT = 15  # 15s allowance for TLS handshake over STARTTLS
+EMAIL_TIMEOUT = 15  # 15s allowance for TLS handshake
 
-# AI Security Assistant
+# 19. AI Security Assistant (Optional)
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')

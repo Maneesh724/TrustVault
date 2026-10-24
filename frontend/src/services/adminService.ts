@@ -4,6 +4,7 @@ import {
   setStoredUsers,
   appendStoredAuditLog,
 } from './storage';
+import { firebaseService } from './firebaseService';
 
 export const adminService = {
   async getAllUsers(): Promise<User[]> {
@@ -70,6 +71,7 @@ export const adminService = {
     const newStatus = users[index].status === 'ACTIVE' ? 'SUSPENDED' : 'ACTIVE';
     users[index].status = newStatus;
     setStoredUsers(users);
+    firebaseService.updateUserStatus(targetUserId, newStatus, actor.name).catch(() => {});
 
     appendStoredAuditLog({
       id: `audit-${Date.now()}`,
@@ -112,6 +114,7 @@ export const adminService = {
           users[idx] = { ...users[idx], status: 'ACTIVE', approvedBy: actor.name, approvedAt: new Date().toISOString() };
           setStoredUsers(users);
         }
+        firebaseService.updateUserStatus(targetUserId, 'ACTIVE', actor.name).catch(() => {});
         appendStoredAuditLog({
           id: `audit-${Date.now()}`,
           timestamp: new Date().toISOString(),
@@ -187,6 +190,7 @@ export const adminService = {
         const users = getStoredUsers();
         const target = users.find((u) => u.id === targetUserId);
         setStoredUsers(users.filter((u) => u.id !== targetUserId));
+        firebaseService.updateUserStatus(targetUserId, 'REJECTED', actor.name).catch(() => {});
         appendStoredAuditLog({
           id: `audit-${Date.now()}`,
           timestamp: new Date().toISOString(),

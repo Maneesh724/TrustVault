@@ -6,6 +6,7 @@ import {
   updateStoredNotification,
 } from './storage';
 import { adminService } from './adminService';
+import { firebaseService } from './firebaseService';
 
 type NotificationListener = () => void;
 const listeners: Set<NotificationListener> = new Set();
@@ -19,6 +20,16 @@ const notifyListeners = () => {
     }
   });
 };
+
+// Real-time Firestore notification sync listener
+if (typeof window !== 'undefined') {
+  firebaseService.onNotificationsChange((firestoreNotifs) => {
+    if (firestoreNotifs && firestoreNotifs.length > 0) {
+      setStoredNotifications(firestoreNotifs);
+      notifyListeners();
+    }
+  });
+}
 
 export const notificationService = {
   subscribe(listener: NotificationListener): () => void {

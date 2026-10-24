@@ -1,0 +1,13 @@
+# TrustVault Backend – Python Requirements
+# Install with: pip install -r requirements.txt
+
+Django==6.1.2
+djangorestframework==3.18.3
+django-cors-headers==4.9.0
+argon2-cffi==25.1.0
+
+# Production WSGI Server & Cloud Database Drivers (Render / PostgreSQL)
+gunicorn==23.0.0
+psycopg2-binary==2.9.10
+dj-database-url==2.3.0
+whitenoise==6.9.0

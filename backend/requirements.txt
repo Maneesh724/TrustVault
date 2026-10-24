@@ -6,8 +6,8 @@ djangorestframework==3.18.3
 django-cors-headers==4.9.0
 argon2-cffi==25.1.0
 
-# Optional: PostgreSQL support (uncomment when DATABASE_URL is configured)
-# psycopg2-binary==2.9.9
-
-# Optional: Twilio for live OTP SMS dispatch
-# twilio==9.3.5
+# Production WSGI Server & Cloud Database Drivers (Render / PostgreSQL)
+gunicorn==23.0.0
+psycopg2-binary==2.9.10
+dj-database-url==2.3.0
+whitenoise==6.9.0

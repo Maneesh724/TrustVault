@@ -50,6 +50,8 @@
   Access permissions are evaluated in real time at the database layer on every document read or download attempt. Revoking access immediately denies subsequent file access without waiting for token expirations.
 - **Immutable Append-Only Audit Trail**:
   Every authentication event, registration attempt, document upload, grant creation, file download, and administrative decision is committed to a tamper-evident audit ledger. Record updates and deletions raise `PermissionError` at both the application and database tiers.
+- **Firebase Firestore Cloud Database**:
+  Connected to Google Cloud Firebase Firestore (`trust-vault-9c688`) for real-time document and user synchronization across `users`, `documents`, `audit_logs`, and `notifications` collections with live reactive listeners (`onSnapshot`).
 
 ---
 

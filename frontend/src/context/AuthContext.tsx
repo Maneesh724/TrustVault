@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, UserRole } from '../types';
 import { authService, RegisterResult } from '../services/authService';
 import { resetAllDemoData } from '../services/storage';
+import { firebaseService } from '../services/firebaseService';
 
 interface AuthContextType {
   user: User | null;
@@ -59,6 +60,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
     init();
+  }, []);
+
+  // Listen for real-time Firestore user changes
+  useEffect(() => {
+    const unsubscribe = firebaseService.onUsersChange((firestoreUsers) => {
+      if (firestoreUsers && firestoreUsers.length > 0) {
+        setAllUsers((prev) => {
+          const map = new Map<string, User>();
+          prev.forEach((u) => map.set(u.id, u));
+          firestoreUsers.forEach((fu) => map.set(fu.id, { ...map.get(fu.id), ...fu }));
+          return Array.from(map.values());
+        });
+      }
+    });
+    return () => unsubscribe();
   }, []);
 
   const login = async (email: string, password: string, rememberMe?: boolean): Promise<User> => {

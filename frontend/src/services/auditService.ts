@@ -1,5 +1,6 @@
 import { AuditLog, AuditSeverity } from '../types';
 import { getStoredAuditLogs, appendStoredAuditLog } from './storage';
+import { firebaseService } from './firebaseService';
 
 export interface AuditFilterParams {
   search?: string;
@@ -22,6 +23,14 @@ export const auditService = {
     } catch {}
 
     let logs = getStoredAuditLogs();
+    if (logs.length === 0) {
+      try {
+        const firestoreLogs = await firebaseService.getAuditLogs();
+        if (firestoreLogs.length > 0) {
+          logs = firestoreLogs;
+        }
+      } catch {}
+    }
 
     if (filters) {
       if (filters.search) {

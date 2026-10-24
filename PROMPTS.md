@@ -185,3 +185,18 @@
        - `/owner/dashboard` -> `TrustVault | Owner Dashboard`
        - `/viewer/dashboard` -> `TrustVault | Viewer Dashboard`
        - `/login` -> `TrustVault | Secure Sign In`
+
+---
+
+## 14. Google Cloud Firebase Firestore Database Integration
+- **User Prompt**: "implement firebase database in this and i already created a firesore database this is the configuartion..." (Provided `projectId: "trust-vault-9c688"`, `apiKey`, `authDomain`, `storageBucket`, etc.)
+- **Implemented Architecture**:
+  1. Installed `firebase@13.1.0` in `frontend/package.json`.
+  2. Created `frontend/src/lib/firebase.ts` with user's Firebase project configuration (`trust-vault-9c688`), initializing `getFirestore` and browser-safe analytics.
+  3. Created `frontend/src/services/firebaseService.ts` implementing complete CRUD operations and real-time listeners across four core Firestore collections:
+     - `users`: User profiles, verified roles, and account statuses (`ACTIVE`, `PENDING_APPROVAL`, `SUSPENDED`).
+     - `documents`: Document metadata, classification, SHA-256 integrity checksums, and discretionary access grants.
+     - `audit_logs`: Immutable security audit events.
+     - `notifications`: Admin alerts and onboarding approval requests.
+  4. Connected `firebaseService` into `storage.ts`, `authService.ts`, `adminService.ts`, `auditService.ts`, and `notificationService.ts` with real-time `onSnapshot` listeners and background replication.
+  5. Built initial automated seed replication to Firestore if remote collections are empty on first startup.

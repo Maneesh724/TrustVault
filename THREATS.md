@@ -108,3 +108,19 @@ Every mitigation outlined in this document is covered by automated unit and inte
 3. **Database Hardening**:
    - Deploy PostgreSQL with dedicated application users granted only `SELECT`, `INSERT`, and specific `UPDATE` privileges.
    - Enforce database-level table immutability on `vault_api_auditrecord`.
+4. **Firebase Firestore Cloud Security Rules**:
+   - Enforce append-only rules on the `audit_logs` collection to prevent record tampering or deletion in the cloud:
+     ```javascript
+     rules_version = '2';
+     service cloud.firestore {
+       match /databases/{database}/documents {
+         match /users/{userId} { allow read, write: if true; }
+         match /documents/{docId} { allow read, write: if true; }
+         match /notifications/{notifId} { allow read, write: if true; }
+         match /audit_logs/{logId} {
+           allow read, create: if true;
+           allow update, delete: if false; // Zero-Trust immutability
+         }
+       }
+     }
+     ```
