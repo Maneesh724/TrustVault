@@ -28,19 +28,8 @@ const LEGACY_MOCK_EMAILS = [
   'alex.morgan@trustvault.com',
 ];
 
-// Seed initial collections to Firebase Firestore in the background
-if (typeof window !== 'undefined') {
-  setTimeout(() => {
-    firebaseService
-      .seedInitialDataIfEmpty(
-        INITIAL_USERS,
-        INITIAL_DOCUMENTS,
-        INITIAL_AUDIT_LOGS,
-        INITIAL_ADMIN_NOTIFICATIONS
-      )
-      .catch(() => {});
-  }, 1000);
-}
+// Authoritative storage managed by Django REST API & PostgreSQL.
+// Direct unauthenticated client writes to Firestore are disabled to prevent data tampering.
 
 export const getStoredUsers = (): User[] => {
   const data = localStorage.getItem(STORAGE_KEYS.USERS);
@@ -71,10 +60,6 @@ export const getStoredUsers = (): User[] => {
 
 export const setStoredUsers = (users: User[]): void => {
   localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
-  // Asynchronously replicate users to Firebase Firestore
-  users.forEach((u) => {
-    firebaseService.syncUser(u).catch(() => {});
-  });
 };
 
 export const getStoredDocuments = (): VaultDocument[] => {
@@ -98,10 +83,6 @@ export const getStoredDocuments = (): VaultDocument[] => {
 
 export const setStoredDocuments = (docs: VaultDocument[]): void => {
   localStorage.setItem(STORAGE_KEYS.DOCUMENTS, JSON.stringify(docs));
-  // Asynchronously replicate documents to Firebase Firestore
-  docs.forEach((d) => {
-    firebaseService.saveDocument(d).catch(() => {});
-  });
 };
 
 export const getStoredAuditLogs = (): AuditLog[] => {
@@ -123,8 +104,6 @@ export const appendStoredAuditLog = (log: AuditLog): void => {
   const logs = getStoredAuditLogs();
   const updated = [log, ...logs];
   localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(updated));
-  // Asynchronously replicate immutable audit record to Firebase Firestore
-  firebaseService.appendAuditLog(log).catch(() => {});
 };
 
 export const getStoredPolicies = (): SecurityPolicy[] => {

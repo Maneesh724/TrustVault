@@ -8,6 +8,16 @@ import { firebaseService } from './firebaseService';
 
 export const adminService = {
   async getAllUsers(): Promise<User[]> {
+    try {
+      const res = await fetch('/api/auth/users');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.users) {
+          setStoredUsers(data.users);
+          return data.users;
+        }
+      }
+    } catch {}
     return getStoredUsers();
   },
 
