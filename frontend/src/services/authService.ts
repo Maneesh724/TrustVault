@@ -4,6 +4,7 @@ import {
   setStoredUsers,
   getCurrentUserId,
   setCurrentUserId,
+  clearCurrentUserId,
   appendStoredAuditLog,
 } from './storage';
 import { notificationService } from './notificationService';
@@ -212,15 +213,20 @@ export const authService = {
       if (res.ok) {
         const data = await res.json();
         if (data.authenticated && data.user) {
+          setCurrentUserId(data.user.id);
           return data.user;
+        } else if (data.authenticated === false) {
+          clearCurrentUserId();
+          return null;
         }
       }
     } catch {
       // fallback to storage
     }
-    const users = getStoredUsers();
     const currentId = getCurrentUserId();
-    const user = users.find((u) => u.id === currentId && u.status === 'ACTIVE') || users.find(u => u.status === 'ACTIVE');
+    if (!currentId) return null;
+    const users = getStoredUsers();
+    const user = users.find((u) => u.id === currentId && u.status === 'ACTIVE');
     return user || null;
   },
 
@@ -430,6 +436,7 @@ export const authService = {
         details: { sessionTerminated: true },
       });
     }
+    clearCurrentUserId();
   },
 
   async switchUser(userId: string): Promise<User> {

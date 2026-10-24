@@ -178,16 +178,16 @@ export const updateStoredNotification = (id: string, updates: Partial<AdminNotif
   }
 };
 
-export const getCurrentUserId = (): string => {
-  const id = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
-  if (!id || id === 'user-003' || id === 'user-005' || id === 'user-006' || id === 'user-007') {
-    return 'user-002'; // Default to admin
-  }
-  return id;
+export const getCurrentUserId = (): string | null => {
+  return localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID) || null;
 };
 
 export const setCurrentUserId = (id: string): void => {
   localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, id);
+};
+
+export const clearCurrentUserId = (): void => {
+  localStorage.removeItem(STORAGE_KEYS.CURRENT_USER_ID);
 };
 
 export const resetAllDemoData = (): void => {
@@ -197,5 +197,5 @@ export const resetAllDemoData = (): void => {
   localStorage.setItem(STORAGE_KEYS.POLICIES, JSON.stringify(INITIAL_SECURITY_POLICIES));
   localStorage.setItem(STORAGE_KEYS.THREATS, JSON.stringify([]));
   localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify([]));
-  localStorage.setItem(STORAGE_KEYS.CURRENT_USER_ID, 'user-002');
+  localStorage.removeItem(STORAGE_KEYS.CURRENT_USER_ID);
 };

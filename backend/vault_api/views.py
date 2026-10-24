@@ -153,47 +153,47 @@ class SendEmailOtpView(APIView):
         print("=" * 60)
 
         email_sent = False
-        try:
-            subject = "[TrustVault] Your Single-Use Email Verification Code"
-            message = (
-                f"Hello,\n\n"
-                f"Your 6-digit TrustVault verification code is:\n\n"
-                f"    {raw_otp}\n\n"
-                f"This code will expire in 5 minutes.\n"
-                f"If you did not request this verification, please disregard this message.\n\n"
-                f"— TrustVault Security & Compliance"
-            )
-            from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@trustvault.com')
-            send_mail(subject, message, from_email, [email], fail_silently=False)
-            email_sent = True
-        except Exception as e:
-            print(f"[Email OTP Delivery notice]: {e}")
-
-        is_smtp_live = bool(os.environ.get('EMAIL_HOST') or os.environ.get('SENDGRID_API_KEY'))
+        is_smtp_configured = bool(getattr(settings, 'EMAIL_HOST_USER', None) and getattr(settings, 'EMAIL_HOST_PASSWORD', None))
+        if is_smtp_configured:
+            try:
+                subject = "[TrustVault] Your Single-Use Email Verification Code"
+                message = (
+                    f"Hello,\n\n"
+                    f"Your 6-digit TrustVault verification code is:\n\n"
+                    f"    {raw_otp}\n\n"
+                    f"This code will expire in 5 minutes.\n"
+                    f"If you did not request this verification, please disregard this message.\n\n"
+                    f"— TrustVault Security & Compliance"
+                )
+                from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None) or settings.EMAIL_HOST_USER
+                send_mail(subject, message, from_email, [email], fail_silently=False)
+                email_sent = True
+            except Exception as e:
+                print(f"[Email OTP Delivery notice]: {e}")
 
         response_payload = {
             'success': True,
             'expiresInSeconds': AUTH_CONFIG['OTP_EXPIRY_SECONDS'],
             'maskedEmail': mask_email(email),
             'emailSent': email_sent,
-            'isDevelopmentMode': not is_smtp_live,
-            'provider': 'SMTP Gateway' if is_smtp_live else 'Console / Standard Mail Delivery'
+            'isDevelopmentMode': not email_sent,
+            'provider': 'Gmail SMTP Gateway' if email_sent else 'Instant Sandbox OTP / Pending SMTP'
         }
 
-        # Only provide devOtp fallback if email delivery failed, SMTP gateway is unconfigured, or in test harness
+        # Provide devOtp fallback whenever email was not delivered so user is never blocked
         if not email_sent or 'test' in sys.argv:
             response_payload['devOtp'] = raw_otp
             response_payload['isDevelopmentMode'] = True
-            response_payload['deliveryNotice'] = (
-                f"Outbound email socket was blocked by your local network/ISP. "
-                f"Single-use verification code: {raw_otp}."
-            )
-        elif not is_smtp_live:
-            response_payload['devOtp'] = raw_otp
-            response_payload['developmentNotice'] = (
-                f"[DEVELOPMENT MODE - EMAIL GATEWAY NOT CONFIGURED] Real SMTP credentials (EMAIL_HOST) "
-                f"are not set in environment."
-            )
+            if not is_smtp_configured:
+                response_payload['deliveryNotice'] = (
+                    f"Real SMTP credentials (EMAIL_HOST_USER / EMAIL_HOST_PASSWORD) are not yet configured on Render. "
+                    f"Use this verification code: {raw_otp}"
+                )
+            else:
+                response_payload['deliveryNotice'] = (
+                    f"SMTP dispatch encountered a delivery delay. "
+                    f"Single-use verification code: {raw_otp}"
+                )
 
         return Response(response_payload)
 

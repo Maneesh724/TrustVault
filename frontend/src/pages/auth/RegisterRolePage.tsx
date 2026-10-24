@@ -110,7 +110,7 @@ export const RegisterRolePage: React.FC<RegisterRoleProps> = ({ role }) => {
     setSubmitting(true);
     try {
       // Step 1: Dispatch Email OTP
-      await authService.requestEmailOtp(email.trim().toLowerCase());
+      const otpRes = await authService.requestEmailOtp(email.trim().toLowerCase());
 
       // Store form registration cache in sessionStorage for the /verify-email screen
       sessionStorage.setItem(
@@ -122,10 +122,16 @@ export const RegisterRolePage: React.FC<RegisterRoleProps> = ({ role }) => {
           password,
           role,
           inviteToken: inviteToken || undefined,
+          devOtp: otpRes.devOtp,
+          emailSent: (otpRes as any).emailSent,
+          deliveryNotice: otpRes.deliveryNotice || otpRes.developmentNotice,
         })
       );
 
-      showToast('OTP Dispatched', `Verification code sent to ${email}`, 'success');
+      const successNotice = otpRes.devOtp
+        ? `Verification code generated: ${otpRes.devOtp}`
+        : `Verification code sent to ${email}`;
+      showToast('OTP Dispatched', successNotice, 'success');
       navigate(`/verify-email?email=${encodeURIComponent(email.trim().toLowerCase())}&role=${role}`);
     } catch (err: any) {
       const msg = err.message || 'Registration failed. Please check your details.';
