@@ -529,7 +529,8 @@ export const OwnerDashboardPage: React.FC = () => {
                             <div className="absolute right-2 top-8 w-36 bg-[#0E1424] border border-slate-800 rounded-xl shadow-xl z-30 p-1.5 space-y-1 text-left animate-in fade-in">
                               <button
                                 onClick={() => {
-                                  if (doc.rawDoc) setPreviewDoc(doc.rawDoc);
+                                  const raw = (doc as any).rawDoc;
+                                  if (raw) setPreviewDoc(raw);
                                   setActiveMenuDocId(null);
                                 }}
                                 className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer"
@@ -539,7 +540,8 @@ export const OwnerDashboardPage: React.FC = () => {
                               </button>
                               <button
                                 onClick={() => {
-                                  if (doc.rawDoc) setManageAccessDoc(doc.rawDoc);
+                                  const raw = (doc as any).rawDoc;
+                                  if (raw) setManageAccessDoc(raw);
                                   setActiveMenuDocId(null);
                                 }}
                                 className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer"
@@ -549,7 +551,8 @@ export const OwnerDashboardPage: React.FC = () => {
                               </button>
                               <button
                                 onClick={() => {
-                                  if (doc.rawDoc) handleDownload(doc.rawDoc);
+                                  const raw = (doc as any).rawDoc;
+                                  if (raw) handleDownload(raw);
                                   setActiveMenuDocId(null);
                                 }}
                                 className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer"

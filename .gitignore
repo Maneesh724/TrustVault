@@ -56,3 +56,9 @@ yarn-error.log*
 Thumbs.db
 *.swp
 *.swo
+
+# Large binaries & Standalone tools
+firebase.exe
+*.exe
+_backup_*/
+_backup_vault/
