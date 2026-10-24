@@ -174,6 +174,7 @@ CORS_ALLOW_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
+    'x-session-id',
 ]
 
 # 14. CSRF Trusted Origins
@@ -195,18 +196,17 @@ REST_FRAMEWORK = {
     ],
 }
 
-# 16. Session Cookie Policy
+# 16. Session Cookie Policy (Cross-site HTTPS for Firebase & Render)
 SESSION_COOKIE_NAME = 'trustvault_session'
 SESSION_COOKIE_AGE = 86400  # 24 hours
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SAMESITE = 'None' if not DEBUG else 'Lax'
-CSRF_COOKIE_SAMESITE = 'None' if not DEBUG else 'Lax'
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SECURE = True
 
 # 17. HTTPS & Proxy Security (Render / Production)
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-if not DEBUG:
-    SESSION_COOKIE_SECURE = True
-    CSRF_COOKIE_SECURE = True
 
 # 18. Email Configuration (Gmail SMTP over STARTTLS port 587)
 EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')

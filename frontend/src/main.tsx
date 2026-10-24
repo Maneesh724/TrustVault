@@ -11,8 +11,14 @@ if (API_BASE_URL) {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
     if (url.startsWith('/api')) {
       const targetUrl = `${API_BASE_URL}${url}`;
+      const sessionId = sessionStorage.getItem('trustvault_session_id');
+      const headers = new Headers(init?.headers || {});
+      if (sessionId && !headers.has('X-Session-ID')) {
+        headers.set('X-Session-ID', sessionId);
+      }
       return originalFetch(targetUrl, {
         ...init,
+        headers,
         credentials: init?.credentials || 'include',
       });
     }

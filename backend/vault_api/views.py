@@ -107,73 +107,104 @@ def send_live_email(to_email: str, subject: str, message: str) -> None:
     Cloud hosts like Render free tier block outbound SMTP (ports 25, 465, 587) with [Errno 101] Network is unreachable.
     HTTPS APIs (Resend, Brevo, SendGrid) use port 443 which is never blocked.
     """
-    resend_key = os.environ.get('RESEND_API_KEY', '').strip()
-    brevo_key = os.environ.get('BREVO_API_KEY', '').strip()
-    sendgrid_key = os.environ.get('SENDGRID_API_KEY', '').strip()
+    resend_key = os.environ.get('RESEND_API_KEY', '').replace('"', '').replace("'", '').strip()
+    brevo_key = os.environ.get('BREVO_API_KEY', '').replace('"', '').replace("'", '').strip()
+    sendgrid_key = os.environ.get('SENDGRID_API_KEY', '').replace('"', '').replace("'", '').strip()
 
-    # 1. Resend API (HTTPS port 443)
-    if resend_key:
-        payload = json.dumps({
-            'from': os.environ.get('RESEND_FROM_EMAIL', 'TrustVault <onboarding@resend.dev>'),
-            'to': [to_email],
-            'subject': subject,
-            'text': message
-        }).encode('utf-8')
-        req = urllib.request.Request(
-            'https://api.resend.com/emails',
-            data=payload,
-            headers={
-                'Authorization': f'Bearer {resend_key}',
-                'Content-Type': 'application/json',
-                'User-Agent': 'TrustVault-Server/1.0'
-            }
-        )
-        with urllib.request.urlopen(req, timeout=12) as resp:
-            if resp.status in (200, 201):
-                return
+    errors = []
 
-    # 2. Brevo API (HTTPS port 443)
+    # 1. Brevo API (HTTPS port 443) - Preferred: Can deliver to ANY recipient
     if brevo_key:
-        sender_email = os.environ.get('DEFAULT_FROM_EMAIL') or os.environ.get('EMAIL_HOST_USER') or 'noreply@trustvault.com'
-        payload = json.dumps({
-            'sender': {'email': sender_email, 'name': 'TrustVault Security'},
-            'to': [{'email': to_email}],
-            'subject': subject,
-            'textContent': message
-        }).encode('utf-8')
-        req = urllib.request.Request(
-            'https://api.brevo.com/v3/smtp/email',
-            data=payload,
-            headers={
-                'api-key': brevo_key,
-                'Content-Type': 'application/json',
-                'User-Agent': 'TrustVault-Server/1.0'
-            }
-        )
-        with urllib.request.urlopen(req, timeout=12) as resp:
-            if resp.status in (200, 201):
-                return
+        try:
+            sender_email = (
+                os.environ.get('BREVO_SENDER_EMAIL')
+                or os.environ.get('DEFAULT_FROM_EMAIL')
+                or os.environ.get('EMAIL_HOST_USER')
+                or 'maneeshgopisetty5@gmail.com'
+            ).replace('"', '').replace("'", '').strip()
+            payload = json.dumps({
+                'sender': {'email': sender_email, 'name': 'TrustVault Security'},
+                'to': [{'email': to_email}],
+                'subject': subject,
+                'textContent': message
+            }).encode('utf-8')
+            req = urllib.request.Request(
+                'https://api.brevo.com/v3/smtp/email',
+                data=payload,
+                headers={
+                    'api-key': brevo_key,
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'User-Agent': 'TrustVault-Server/1.0'
+                }
+            )
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                if resp.status in (200, 201):
+                    return
+        except urllib.error.HTTPError as he:
+            err_body = he.read().decode('utf-8', errors='ignore')
+            print(f"[Brevo Error {he.code}]: {err_body}")
+            errors.append(f"Brevo ({he.code}): {err_body}")
+        except Exception as e:
+            print(f"[Brevo Error]: {e}")
+            errors.append(f"Brevo: {str(e)}")
+
+    # 2. Resend API (HTTPS port 443)
+    if resend_key:
+        try:
+            payload = json.dumps({
+                'from': os.environ.get('RESEND_FROM_EMAIL', 'TrustVault <onboarding@resend.dev>'),
+                'to': [to_email],
+                'subject': subject,
+                'text': message
+            }).encode('utf-8')
+            req = urllib.request.Request(
+                'https://api.resend.com/emails',
+                data=payload,
+                headers={
+                    'Authorization': f'Bearer {resend_key}',
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'TrustVault-Server/1.0'
+                }
+            )
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                if resp.status in (200, 201):
+                    return
+        except urllib.error.HTTPError as he:
+            err_body = he.read().decode('utf-8', errors='ignore')
+            print(f"[Resend Error {he.code}]: {err_body}")
+            errors.append(f"Resend ({he.code}): {err_body}")
+        except Exception as e:
+            print(f"[Resend Error]: {e}")
+            errors.append(f"Resend: {str(e)}")
 
     # 3. SendGrid API (HTTPS port 443)
     if sendgrid_key:
-        sender_email = os.environ.get('DEFAULT_FROM_EMAIL') or os.environ.get('EMAIL_HOST_USER') or 'noreply@trustvault.com'
-        payload = json.dumps({
-            'personalizations': [{'to': [{'email': to_email}]}],
-            'from': {'email': sender_email, 'name': 'TrustVault Security'},
-            'subject': subject,
-            'content': [{'type': 'text/plain', 'value': message}]
-        }).encode('utf-8')
-        req = urllib.request.Request(
-            'https://api.sendgrid.com/v3/mail/send',
-            data=payload,
-            headers={
-                'Authorization': f'Bearer {sendgrid_key}',
-                'Content-Type': 'application/json'
-            }
-        )
-        with urllib.request.urlopen(req, timeout=12) as resp:
-            if resp.status in (200, 202):
-                return
+        try:
+            sender_email = os.environ.get('DEFAULT_FROM_EMAIL') or os.environ.get('EMAIL_HOST_USER') or 'noreply@trustvault.com'
+            payload = json.dumps({
+                'personalizations': [{'to': [{'email': to_email}]}],
+                'from': {'email': sender_email, 'name': 'TrustVault Security'},
+                'subject': subject,
+                'content': [{'type': 'text/plain', 'value': message}]
+            }).encode('utf-8')
+            req = urllib.request.Request(
+                'https://api.sendgrid.com/v3/mail/send',
+                data=payload,
+                headers={
+                    'Authorization': f'Bearer {sendgrid_key}',
+                    'Content-Type': 'application/json'
+                }
+            )
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                if resp.status in (200, 202):
+                    return
+        except Exception as e:
+            print(f"[SendGrid Error]: {e}")
+            errors.append(f"SendGrid: {str(e)}")
+
+    if errors:
+        raise Exception(" | ".join(errors))
 
     # 4. Standard SMTP fallback (port 587)
     from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None) or getattr(settings, 'EMAIL_HOST_USER', None) or 'noreply@trustvault.com'
@@ -791,6 +822,26 @@ class CurrentUserView(APIView):
         user_id = request.session.get('user_id')
         if not user_id and request.user.is_authenticated:
             user_id = request.user.id
+
+        # Cross-site cookie fallback: support X-Session-ID header
+        if not user_id:
+            session_key = (
+                request.headers.get('X-Session-ID')
+                or request.META.get('HTTP_X_SESSION_ID')
+                or ''
+            ).strip()
+            if not session_key:
+                auth_hdr = request.headers.get('Authorization', '')
+                if auth_hdr.startswith('Bearer ') or auth_hdr.startswith('Session '):
+                    session_key = auth_hdr.split(' ', 1)[1].strip()
+
+            if session_key:
+                from django.contrib.sessions.backends.db import SessionStore
+                try:
+                    s = SessionStore(session_key=session_key)
+                    user_id = s.get('user_id')
+                except Exception:
+                    pass
 
         if not user_id:
             return Response({'authenticated': False, 'message': 'No active session'}, status=status.HTTP_401_UNAUTHORIZED)

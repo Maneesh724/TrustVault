@@ -205,6 +205,9 @@ export const authService = {
     }
 
     const loggedUser: User = data.user;
+    if (data.sessionId) {
+      sessionStorage.setItem('trustvault_session_id', data.sessionId);
+    }
 
     // Sync local storage session
     const users = getStoredUsers();
@@ -396,6 +399,7 @@ export const authService = {
       });
     }
     clearCurrentUserId();
+    sessionStorage.removeItem('trustvault_session_id');
   },
 
   async switchUser(userId: string): Promise<User> {

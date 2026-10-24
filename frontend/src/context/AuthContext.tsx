@@ -39,8 +39,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const users = await authService.getAllUsers();
       setAllUsers(users);
-      const current = await authService.getCurrentUser();
-      setUser(current);
     } catch (err) {
       console.error('Error refreshing users', err);
     }
