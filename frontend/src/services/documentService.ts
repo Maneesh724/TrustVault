@@ -347,4 +347,26 @@ export const documentService = {
     const url = URL.createObjectURL(blob);
     return { downloadUrl: url, filename: doc.filename };
   },
+
+  async revokeAccess(docId: string, userId: string, actorName?: string): Promise<void> {
+    try {
+      await fetch(`/api/documents/${encodeURIComponent(docId)}/revoke`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, revokedBy: actorName || 'Document Owner' }),
+      });
+    } catch {}
+
+    const docs = getStoredDocuments();
+    const doc = docs.find((d) => d.id === docId);
+    if (doc) {
+      const grant = doc.grants.find((g) => g.userId === userId);
+      if (grant) {
+        grant.status = 'REVOKED';
+        grant.revokedAt = new Date().toISOString();
+        grant.revokedBy = actorName || 'Document Owner';
+        setStoredDocuments(docs);
+      }
+    }
+  },
 };

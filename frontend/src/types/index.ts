@@ -24,7 +24,7 @@ export interface User {
   avatarUrl?: string;
   department: string;
   mfaEnabled: boolean;
-  status: 'ACTIVE' | 'SUSPENDED' | 'INVITED' | 'PENDING_APPROVAL';
+  status: 'ACTIVE' | 'SUSPENDED' | 'INVITED' | 'PENDING_APPROVAL' | 'REJECTED';
   phone?: string;
   phoneVerified?: boolean;
   emailVerified?: boolean;
@@ -33,6 +33,8 @@ export interface User {
   lastLoginAt: string;
   createdAt: string;
 }
+
+export type CustomUser = User;
 
 export type DocumentClassification = 'PUBLIC' | 'INTERNAL' | 'CONFIDENTIAL' | 'RESTRICTED';
 

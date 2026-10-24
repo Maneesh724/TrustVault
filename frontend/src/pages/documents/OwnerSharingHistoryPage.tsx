@@ -92,7 +92,7 @@ export const OwnerSharingHistoryPage: React.FC = () => {
             permission: (g.permission as 'READ' | 'EDIT') || 'READ',
             status: computedStatus,
             grantedAt: g.grantedAt,
-            expiresAt: g.expiresAt,
+            expiresAt: g.expiresAt || undefined,
             revokedAt: g.revokedAt,
             revokedBy: g.revokedBy,
           });
@@ -385,6 +385,7 @@ export const OwnerSharingHistoryPage: React.FC = () => {
           document={selectedDocForGrant}
           allUsers={allUsers}
           currentUser={user}
+          onGrantsChanged={loadOwnerDocuments}
         />
       )}
     </div>

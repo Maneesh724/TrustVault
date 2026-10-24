@@ -3,6 +3,8 @@ import { Modal } from '../common/Modal';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 import { VaultDocument, PermissionLevel, User } from '../../types';
 import { accessService } from '../../services/accessService';
+import { getStoredUsers } from '../../services/storage';
+import { useAuth } from '../../context/AuthContext';
 import { RoleBadge, StatusBadge } from '../common/Badge';
 import { UserPlus, ShieldX } from 'lucide-react';
 import { useToast } from '../../context/ToastContext';
@@ -11,9 +13,10 @@ interface AccessManageModalProps {
   isOpen: boolean;
   onClose: () => void;
   document: VaultDocument;
-  currentUser: User;
-  allUsers: User[];
-  onGrantsChanged: () => Promise<void>;
+  currentUser?: User;
+  allUsers?: User[];
+  onGrantsChanged?: () => Promise<void>;
+  onPermissionsUpdated?: () => Promise<void>;
 }
 
 export const AccessManageModal: React.FC<AccessManageModalProps> = ({
@@ -23,8 +26,14 @@ export const AccessManageModal: React.FC<AccessManageModalProps> = ({
   currentUser,
   allUsers,
   onGrantsChanged,
+  onPermissionsUpdated,
 }) => {
   const { showToast } = useToast();
+  const { user: authUser } = useAuth();
+  const effectiveUser = currentUser || authUser || ({ id: 'admin', name: 'Administrator', role: 'ADMIN' } as User);
+  const effectiveUsers = allUsers || getStoredUsers();
+  const refreshCallback = onGrantsChanged || onPermissionsUpdated || (async () => {});
+
   const [selectedUserId, setSelectedUserId] = useState('');
   const [permission, setPermission] = useState<PermissionLevel>('READ');
   const [expirationOption, setExpirationOption] = useState<'NONE' | '7D' | '30D' | 'CUSTOM'>('NONE');
@@ -38,8 +47,8 @@ export const AccessManageModal: React.FC<AccessManageModalProps> = ({
   const [isRevoking, setIsRevoking] = useState(false);
 
   // Filter users eligible for new grants
-  const eligibleUsers = allUsers.filter(
-    (u) => u.id !== currentUser.id && u.id !== document.ownerId
+  const eligibleUsers = effectiveUsers.filter(
+    (u) => u.id !== effectiveUser.id && u.id !== document.ownerId
   );
 
   const calculateExpiresAt = (): string | null => {
@@ -68,11 +77,11 @@ export const AccessManageModal: React.FC<AccessManageModalProps> = ({
     setIsGranting(true);
     try {
       const expiresAt = calculateExpiresAt();
-      await accessService.grantAccess(document.id, selectedUserId, permission, expiresAt, currentUser);
+      await accessService.grantAccess(document.id, selectedUserId, permission, expiresAt, effectiveUser);
       showToast('Access Granted', `Permission assigned successfully with zero-trust validation.`, 'success');
       setSelectedUserId('');
       setExpirationOption('NONE');
-      await onGrantsChanged();
+      await refreshCallback();
     } catch (err: any) {
       showToast('Grant Failed', err.message || 'Error granting access', 'error');
     } finally {
@@ -93,7 +102,7 @@ export const AccessManageModal: React.FC<AccessManageModalProps> = ({
       await accessService.revokeAccessImmediately(
         document.id,
         revokingGrantId,
-        currentUser,
+        effectiveUser,
         'Manual revocation by document owner/admin'
       );
       showToast(
@@ -103,7 +112,7 @@ export const AccessManageModal: React.FC<AccessManageModalProps> = ({
       );
       setIsConfirmRevokeOpen(false);
       setRevokingGrantId(null);
-      await onGrantsChanged();
+      await refreshCallback();
     } catch (err: any) {
       showToast('Revocation Failed', err.message || 'Failed to revoke access', 'error');
     } finally {

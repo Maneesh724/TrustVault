@@ -183,31 +183,32 @@ export const adminService = {
     return users[index];
   },
 
-  async rejectUser(targetUserId: string, actor: User): Promise<void> {
-    if (actor.role !== 'OWNER' && actor.role !== 'ADMIN') {
-      throw new Error('Access Denied: Only Owner or Admin can reject registration requests.');
-    }
+  async rejectUser(targetUserId: string, actor: User | string): Promise<void> {
+    const actorName = typeof actor === 'string' ? actor : actor.name;
+    const actorId = typeof actor === 'string' ? 'admin' : actor.id;
+    const actorEmail = typeof actor === 'string' ? 'admin@trustvault.com' : actor.email;
+    const actorRole = typeof actor === 'string' ? 'ADMIN' : actor.role;
 
     // Call real backend first
     try {
       const res = await fetch('/api/auth/reject', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetUserId, rejectorName: actor.name }),
+        body: JSON.stringify({ targetUserId, rejectorName: actorName }),
       });
       if (res.ok) {
         // Remove from local storage
         const users = getStoredUsers();
         const target = users.find((u) => u.id === targetUserId);
         setStoredUsers(users.filter((u) => u.id !== targetUserId));
-        firebaseService.updateUserStatus(targetUserId, 'REJECTED', actor.name).catch(() => {});
+        firebaseService.updateUserStatus(targetUserId, 'REJECTED', actorName).catch(() => {});
         appendStoredAuditLog({
           id: `audit-${Date.now()}`,
           timestamp: new Date().toISOString(),
-          actorId: actor.id,
-          actorName: actor.name,
-          actorEmail: actor.email,
-          actorRole: actor.role,
+          actorId,
+          actorName,
+          actorEmail,
+          actorRole,
           action: 'USER_STATUS_CHANGE',
           targetResourceId: targetUserId,
           targetResourceName: target?.name || targetUserId,
@@ -234,10 +235,10 @@ export const adminService = {
     appendStoredAuditLog({
       id: `audit-${Date.now()}`,
       timestamp: new Date().toISOString(),
-      actorId: actor.id,
-      actorName: actor.name,
-      actorEmail: actor.email,
-      actorRole: actor.role,
+      actorId,
+      actorName,
+      actorEmail,
+      actorRole,
       action: 'USER_STATUS_CHANGE',
       targetResourceId: targetUserId,
       targetResourceName: target.name,
