@@ -15,6 +15,8 @@ export interface SendOtpResponse {
   provider: string;
   isDevelopmentMode: boolean;
   developmentNotice?: string;
+  deliveryNotice?: string;
+  emailSent?: boolean;
   devOtp?: string;
   maskedEmail?: string;
 }
