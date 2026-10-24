@@ -9,7 +9,7 @@
     "lint": "oxlint",
     "test": "node --experimental-strip-types --test tests/auth.test.ts",
     "preview": "vite preview",
-    "deploy:firebase": "firebase deploy --only hosting"
+    "deploy:firebase": "npx firebase deploy --only hosting"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",
