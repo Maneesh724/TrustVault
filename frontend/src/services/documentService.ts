@@ -63,7 +63,7 @@ export const documentService = {
         } else {
           permission = grant.permission;
         }
-      } else if (doc.classification === 'PUBLIC') {
+      } else if (['PUBLIC', 'INTERNAL'].includes(doc.classification)) {
         permission = 'READ';
       }
     }
@@ -265,7 +265,7 @@ export const documentService = {
     const isOwner = doc.ownerId === currentUser.id || currentUser.role === 'OWNER' || currentUser.role === 'ADMIN';
     const activeGrant = doc.grants.find((g) => g.userId === currentUser.id && g.status === 'ACTIVE');
 
-    if (!isOwner && !activeGrant && doc.classification !== 'PUBLIC') {
+    if (!isOwner && !activeGrant && !['PUBLIC', 'INTERNAL'].includes(doc.classification)) {
       appendStoredAuditLog({
         id: `audit-${Date.now()}`,
         timestamp: new Date().toISOString(),
@@ -330,13 +330,28 @@ export const documentService = {
 
     // 1. Fetch real uploaded document binary stream from backend
     try {
-      const res = await fetch(`/api/documents/${encodeURIComponent(docId)}/download?userId=${encodeURIComponent(currentUser.id)}`);
+      const sessionId = sessionStorage.getItem('trustvault_session_id');
+      const res = await fetch(`/api/documents/${encodeURIComponent(docId)}/download?userId=${encodeURIComponent(currentUser.id)}`, {
+        credentials: 'include',
+        headers: sessionId ? { 'X-Session-ID': sessionId } : {},
+      });
       if (res.ok) {
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         return { downloadUrl: url, filename: doc.filename };
       }
-    } catch (err) {
+      if (res.status === 403 || res.status === 401) {
+        let errMsg = 'Access Denied: You do not have permission to download this document.';
+        try {
+          const errData = await res.json();
+          if (errData.error) errMsg = errData.error;
+        } catch {}
+        throw new Error(errMsg);
+      }
+    } catch (err: any) {
+      if (err.message && err.message.includes('Access Denied')) {
+        throw err;
+      }
       console.warn('Backend download endpoint error, applying secure fallback', err);
     }
 

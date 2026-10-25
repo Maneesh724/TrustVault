@@ -1493,6 +1493,18 @@ class DocumentListView(APIView):
         from django.utils import timezone as tz
 
         user_id = request.GET.get('userId') or request.session.get('user_id')
+        if not user_id:
+            session_id = request.headers.get('X-Session-ID') or request.COOKIES.get('sessionid')
+            if session_id:
+                try:
+                    from django.contrib.sessions.models import Session
+                    s = Session.objects.get(session_key=session_id)
+                    user_id = s.get_decoded().get('user_id')
+                except Exception:
+                    pass
+        if not user_id and request.user.is_authenticated:
+            user_id = request.user.id
+
         current_user = None
         if user_id:
             try:
@@ -1503,16 +1515,20 @@ class DocumentListView(APIView):
         if current_user and current_user.role == 'ADMIN':
             docs = VaultDocument.objects.all().prefetch_related('versions', 'grants')
         elif current_user and current_user.role == 'OWNER':
-            docs = VaultDocument.objects.filter(owner=current_user).prefetch_related('versions', 'grants')
+            docs = VaultDocument.objects.filter(
+                DQ(owner=current_user) |
+                DQ(grants__user=current_user, grants__status='ACTIVE') |
+                DQ(classification__in=['PUBLIC', 'INTERNAL'])
+            ).distinct().prefetch_related('versions', 'grants')
         elif current_user and current_user.role == 'VIEWER':
             docs = VaultDocument.objects.filter(
-                grants__user=current_user,
-                grants__status='ACTIVE'
-            ).filter(
-                DQ(grants__expires_at__isnull=True) | DQ(grants__expires_at__gt=tz.now())
+                DQ(grants__user=current_user, grants__status='ACTIVE') |
+                DQ(classification__in=['PUBLIC', 'INTERNAL'])
+            ).exclude(
+                grants__user=current_user, grants__status='REVOKED'
             ).distinct().prefetch_related('versions', 'grants')
         else:
-            docs = VaultDocument.objects.none()
+            docs = VaultDocument.objects.filter(classification='PUBLIC').prefetch_related('versions', 'grants')
 
         return Response(VaultDocumentSerializer(docs, many=True).data)
 
@@ -1538,7 +1554,7 @@ class DocumentListView(APIView):
             return str(val).lower() in ['true', '1', 'yes']
 
         watermark_enabled = parse_bool(request.data.get('watermarkEnabled', True))
-        download_restricted = parse_bool(request.data.get('downloadRestricted', True))
+        download_restricted = parse_bool(request.data.get('downloadRestricted', False), default=False)
         file_obj = request.FILES.get('file')
         owner_id = request.data.get('ownerId')
 
@@ -1552,6 +1568,18 @@ class DocumentListView(APIView):
 
         filename = file_obj.name if file_obj else f"{title.replace(' ', '_')}.pdf"
         file_size = file_obj.size if file_obj else 1024000
+
+        file_mime = 'application/pdf'
+        if file_obj and hasattr(file_obj, 'content_type') and file_obj.content_type:
+            file_mime = file_obj.content_type
+        elif filename.lower().endswith('.pdf'):
+            file_mime = 'application/pdf'
+        elif filename.lower().endswith(('.png', '.jpg', '.jpeg', '.webp', '.svg')):
+            ext_img = filename.split('.')[-1].lower()
+            file_mime = f"image/{'jpeg' if ext_img in ['jpg', 'jpeg'] else ext_img}"
+        elif filename.lower().endswith(('.txt', '.csv', '.json', '.log', '.md')):
+            file_mime = 'text/plain'
+
         if file_obj:
             content = file_obj.read()
             sha256 = hashlib.sha256(content).hexdigest()
@@ -1563,6 +1591,7 @@ class DocumentListView(APIView):
             title=title,
             description=description,
             filename=filename,
+            mime_type=file_mime,
             file_size_bytes=file_size,
             classification=classification,
             owner=owner,
@@ -1603,9 +1632,9 @@ class DocumentListView(APIView):
 
         if share_option in ['VIEWER', 'BOTH']:
             if selected_viewer_id and selected_viewer_id != 'ALL':
-                viewers_to_grant = CustomUser.objects.filter(id=selected_viewer_id, role='VIEWER')
+                viewers_to_grant = CustomUser.objects.filter(id=selected_viewer_id)
             else:
-                viewers_to_grant = CustomUser.objects.filter(role='VIEWER', status='ACTIVE')
+                viewers_to_grant = CustomUser.objects.filter(role='VIEWER')
 
             for v in viewers_to_grant:
                 DocumentGrant.objects.get_or_create(
@@ -1670,7 +1699,19 @@ class DocumentDetailView(APIView):
         except VaultDocument.DoesNotExist:
             return Response({'error': 'Document not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        user_id = request.GET.get('userId')
+        user_id = request.GET.get('userId') or request.session.get('user_id')
+        if not user_id:
+            session_id = request.headers.get('X-Session-ID') or request.COOKIES.get('sessionid')
+            if session_id:
+                try:
+                    from django.contrib.sessions.models import Session
+                    s = Session.objects.get(session_key=session_id)
+                    user_id = s.get_decoded().get('user_id')
+                except Exception:
+                    pass
+        if not user_id and request.user.is_authenticated:
+            user_id = request.user.id
+
         permission = 'NONE'
 
         if user_id:
@@ -1685,10 +1726,12 @@ class DocumentDetailView(APIView):
                             permission = 'REVOKED'
                         else:
                             permission = grant.permission
-                    elif doc.classification == 'PUBLIC':
+                    elif doc.classification in ['PUBLIC', 'INTERNAL']:
                         permission = 'READ'
             except CustomUser.DoesNotExist:
                 pass
+        elif doc.classification in ['PUBLIC', 'INTERNAL']:
+            permission = 'READ'
 
         return Response({
             'document': VaultDocumentSerializer(doc).data,
@@ -1798,7 +1841,16 @@ class DocumentDownloadView(APIView):
         except VaultDocument.DoesNotExist:
             return Response({'error': 'Document not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-        user_id = request.GET.get('userId')
+        user_id = request.GET.get('userId') or request.session.get('user_id')
+        if not user_id:
+            session_id = request.headers.get('X-Session-ID') or request.COOKIES.get('sessionid')
+            if session_id:
+                try:
+                    from django.contrib.sessions.models import Session
+                    s = Session.objects.get(session_key=session_id)
+                    user_id = s.get_decoded().get('user_id')
+                except Exception:
+                    pass
         if not user_id and request.user.is_authenticated:
             user_id = request.user.id
 
@@ -1815,7 +1867,12 @@ class DocumentDownloadView(APIView):
             authorized = True
         else:
             grant = DocumentGrant.objects.filter(document=doc, user=user).order_by('-granted_at').first()
-            if grant and grant.is_valid_now():
+            if grant:
+                if grant.is_valid_now():
+                    authorized = True
+                else:
+                    authorized = False  # Explicitly revoked or expired
+            elif doc.classification in ['PUBLIC', 'INTERNAL']:
                 authorized = True
 
         if not authorized:
@@ -1876,7 +1933,7 @@ class DocumentDownloadView(APIView):
                         file_data = f.read()
                     response = HttpResponse(file_data, content_type=doc.mime_type or 'application/octet-stream')
                     response['Content-Disposition'] = f'{disposition}; filename="{doc.filename}"'
-                    response['X-Frame-Options'] = 'SAMEORIGIN'
+                    response['Content-Security-Policy'] = "frame-ancestors 'self' https://trust-vault-9c688.web.app https://trust-vault-9c688.firebaseapp.com http://localhost:5173 http://localhost:5174;"
                     return response
             except Exception:
                 pass
@@ -1901,7 +1958,7 @@ class DocumentDownloadView(APIView):
         )
         response = HttpResponse(valid_pdf_payload, content_type=doc.mime_type or 'application/pdf')
         response['Content-Disposition'] = f'{disposition}; filename="{doc.filename}"'
-        response['X-Frame-Options'] = 'SAMEORIGIN'
+        response['Content-Security-Policy'] = "frame-ancestors 'self' https://trust-vault-9c688.web.app https://trust-vault-9c688.firebaseapp.com http://localhost:5173 http://localhost:5174;"
         return response
 
 

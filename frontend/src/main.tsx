@@ -9,8 +9,10 @@ if (API_BASE_URL) {
   const originalFetch = window.fetch.bind(window);
   window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
-    if (url.startsWith('/api')) {
-      const targetUrl = `${API_BASE_URL}${url}`;
+    const isRelativeApi = url.startsWith('/api');
+    const isAbsoluteApi = url.startsWith(API_BASE_URL);
+    if (isRelativeApi || isAbsoluteApi) {
+      const targetUrl = isRelativeApi ? `${API_BASE_URL}${url}` : url;
       const sessionId = sessionStorage.getItem('trustvault_session_id');
       const headers = new Headers(init?.headers || {});
       if (sessionId && !headers.has('X-Session-ID')) {

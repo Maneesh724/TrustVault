@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Modal } from '../common/Modal';
 import { VaultDocument, User } from '../../types';
 import { ClassificationBadge } from '../common/Badge';
-import { Download, ExternalLink, FileText, RefreshCw, AlertCircle, FileCheck2 } from 'lucide-react';
+import { Download, ExternalLink, FileText, RefreshCw, AlertCircle, FileCheck2, ShieldCheck, Eye } from 'lucide-react';
 import { documentService } from '../../services/documentService';
 import { useToast } from '../../context/ToastContext';
+import { apiUrl } from '../../config/api';
 
 interface DocumentPreviewModalProps {
   isOpen: boolean;
@@ -22,34 +23,85 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
   const { showToast } = useToast();
   const [downloading, setDownloading] = useState(false);
   const [textContent, setTextContent] = useState<string | null>(null);
-  const [loadingText, setLoadingText] = useState(false);
-
-  const previewUrl = `/api/documents/${encodeURIComponent(document.id)}/download?userId=${encodeURIComponent(
-    currentUser.id
-  )}&preview=1`;
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [loadingFile, setLoadingFile] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const ext = (document.filename.split('.').pop() || '').toLowerCase();
   const isPdf = ext === 'pdf' || document.mimeType?.includes('pdf');
   const isImage = ['png', 'jpg', 'jpeg', 'webp', 'svg', 'gif'].includes(ext) || document.mimeType?.startsWith('image/');
   const isText = ['txt', 'csv', 'json', 'log', 'sql', 'md'].includes(ext) || document.mimeType?.includes('text');
 
-  // If text file, fetch content to render directly
+  // Securely stream document binary through authenticated API into a local Blob URL
   useEffect(() => {
-    if (isOpen && isText) {
-      setLoadingText(true);
-      fetch(previewUrl)
-        .then((res) => (res.ok ? res.text() : ''))
-        .then((text) => setTextContent(text))
-        .catch(() => setTextContent(null))
-        .finally(() => setLoadingText(false));
-    } else {
-      setTextContent(null);
+    let active = true;
+    let createdUrl = '';
+
+    if (isOpen && document.id) {
+      setLoadingFile(true);
+      setLoadError(null);
+
+      const targetPath = `/api/documents/${encodeURIComponent(document.id)}/download?userId=${encodeURIComponent(
+        currentUser.id
+      )}&preview=1`;
+      const targetUrl = apiUrl(targetPath);
+      const sessionId = sessionStorage.getItem('trustvault_session_id');
+
+      fetch(targetUrl, {
+        credentials: 'include',
+        headers: sessionId ? { 'X-Session-ID': sessionId } : {},
+      })
+        .then(async (res) => {
+          if (!res.ok) {
+            let errMsg = `Failed to load document (HTTP ${res.status})`;
+            try {
+              const data = await res.json();
+              if (data.error) errMsg = data.error;
+            } catch {}
+            throw new Error(errMsg);
+          }
+          if (isText) {
+            const text = await res.text();
+            if (active) setTextContent(text);
+            return null;
+          }
+          return res.blob();
+        })
+        .then((blob) => {
+          if (!active || !blob) return;
+          createdUrl = URL.createObjectURL(blob);
+          setBlobUrl(createdUrl);
+        })
+        .catch((err: any) => {
+          if (!active) return;
+          setLoadError(err.message || 'Unable to load document preview.');
+        })
+        .finally(() => {
+          if (active) setLoadingFile(false);
+        });
     }
-  }, [isOpen, document.id, isText, previewUrl]);
+
+    return () => {
+      active = false;
+      if (createdUrl) URL.revokeObjectURL(createdUrl);
+      setBlobUrl(null);
+      setTextContent(null);
+    };
+  }, [isOpen, document.id, currentUser.id, isText]);
 
   const handleDownload = async () => {
     setDownloading(true);
     try {
+      if (blobUrl) {
+        const link = window.document.createElement('a');
+        link.href = blobUrl;
+        link.download = document.filename;
+        window.document.body.appendChild(link);
+        link.click();
+        window.document.body.removeChild(link);
+        showToast('Download Ready', `Downloading "${document.filename}"...`, 'success');
+        return;
+      }
       const res = await documentService.requestSecureDownload(document.id, currentUser);
       const link = window.document.createElement('a');
       link.href = res.downloadUrl;
@@ -62,6 +114,12 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
       showToast('Download Denied', err.message || 'Authorization failed', 'error');
     } finally {
       setDownloading(false);
+    }
+  };
+
+  const handleOpenFullScreen = () => {
+    if (blobUrl) {
+      window.open(blobUrl, '_blank');
     }
   };
 
@@ -92,18 +150,20 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
-            <a
-              href={previewUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-[#1E293B] bg-[#0D1322] hover:bg-[#131B2E] text-slate-300 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer"
-              title="Open document in a dedicated browser tab"
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-              <span>Full Screen</span>
-            </a>
+            {blobUrl && (
+              <button
+                type="button"
+                onClick={handleOpenFullScreen}
+                className="px-3 py-1.5 text-xs font-semibold rounded-xl border border-[#1E293B] bg-[#0D1322] hover:bg-[#131B2E] text-slate-300 hover:text-white flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Open document in a dedicated browser tab"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Full Screen</span>
+              </button>
+            )}
 
             <button
+              type="button"
               onClick={handleDownload}
               disabled={downloading}
               className="px-4 py-1.5 text-xs font-bold rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition-all cursor-pointer disabled:opacity-50"
@@ -114,36 +174,42 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
           </div>
         </div>
 
-        {/* Real Document Preview Area (No watermarks, no mock text stamps) */}
-        <div className="rounded-xl border border-[#161F33] bg-[#050811] overflow-hidden shadow-2xl flex items-center justify-center min-h-[55vh] max-h-[75vh]">
-          {isPdf ? (
-            <iframe
-              src={`${previewUrl}#toolbar=1&navpanes=0&scrollbar=1`}
-              title={document.title}
-              className="w-full h-[72vh] border-0 rounded-xl bg-white"
-            />
-          ) : isImage ? (
+        {/* Real Document Preview Area */}
+        <div className="rounded-xl border border-[#161F33] bg-[#050811] overflow-hidden shadow-2xl flex items-center justify-center min-h-[55vh] max-h-[75vh] relative">
+          {loadingFile ? (
+            <div className="flex flex-col items-center justify-center p-12 text-slate-400 gap-3">
+              <RefreshCw className="w-6 h-6 animate-spin text-emerald-400" />
+              <span className="text-xs font-mono">Decrypting & streaming document from vault...</span>
+            </div>
+          ) : loadError ? (
+            <div className="p-8 text-center space-y-3 max-w-md">
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 flex items-center justify-center mx-auto">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <h4 className="text-sm font-bold text-white">Access Denied / Preview Error</h4>
+              <p className="text-xs text-rose-300/90 leading-relaxed font-mono bg-rose-950/20 p-3 rounded-xl border border-rose-900/30">
+                {loadError}
+              </p>
+            </div>
+          ) : isPdf && blobUrl ? (
+            <div className="w-full h-[72vh] flex flex-col">
+              <iframe
+                src={`${blobUrl}#toolbar=1&navpanes=0&scrollbar=1`}
+                title={document.title}
+                className="w-full h-full border-0 rounded-xl bg-slate-900"
+              />
+            </div>
+          ) : isImage && blobUrl ? (
             <div className="p-4 flex items-center justify-center w-full h-full overflow-auto max-h-[72vh]">
               <img
-                src={previewUrl}
+                src={blobUrl}
                 alt={document.title}
                 className="max-h-[68vh] max-w-full rounded-lg object-contain shadow-lg"
               />
             </div>
-          ) : isText ? (
+          ) : isText && textContent !== null ? (
             <div className="w-full h-[72vh] p-5 overflow-auto text-left font-mono text-xs bg-[#080D1A] text-slate-200 whitespace-pre-wrap leading-relaxed select-text">
-              {loadingText ? (
-                <div className="flex items-center justify-center h-full text-slate-400 gap-2">
-                  <RefreshCw className="w-4 h-4 animate-spin text-emerald-400" />
-                  <span>Loading document contents...</span>
-                </div>
-              ) : textContent !== null ? (
-                textContent
-              ) : (
-                <div className="p-8 text-center text-slate-400">
-                  <p>Unable to display plain text stream.</p>
-                </div>
-              )}
+              {textContent}
             </div>
           ) : (
             <div className="p-10 text-center space-y-4 max-w-md">
@@ -153,16 +219,29 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
               <div>
                 <h4 className="text-base font-bold text-white">{document.filename}</h4>
                 <p className="text-xs text-slate-400 mt-1">
-                  This file format ({ext.toUpperCase()}) is stored securely in your vault. Click below to download and view the original file.
+                  This document ({ext.toUpperCase()}) is securely stored in your private vault. Click below to view or download.
                 </p>
               </div>
-              <button
-                onClick={handleDownload}
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold text-xs inline-flex items-center gap-2 shadow-lg shadow-emerald-500/20 cursor-pointer"
-              >
-                <Download className="w-4 h-4" />
-                <span>Download & View File</span>
-              </button>
+              <div className="flex items-center justify-center gap-3">
+                {blobUrl && (
+                  <button
+                    type="button"
+                    onClick={handleOpenFullScreen}
+                    className="px-4 py-2 rounded-xl bg-[#0D1322] hover:bg-[#131B2E] border border-slate-700 text-white font-semibold text-xs inline-flex items-center gap-2 cursor-pointer transition-colors"
+                  >
+                    <Eye className="w-4 h-4 text-emerald-400" />
+                    <span>Open Viewer</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={handleDownload}
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold text-xs inline-flex items-center gap-2 shadow-lg shadow-emerald-500/20 cursor-pointer"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Download File</span>
+                </button>
+              </div>
             </div>
           )}
         </div>
