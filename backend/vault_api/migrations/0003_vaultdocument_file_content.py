@@ -4,7 +4,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('vault_api', '0001_initial'),
+        ('vault_api', '0002_emailotp_customuser_email_verified_and_more'),
     ]
 
     operations = [
