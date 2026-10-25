@@ -1758,6 +1758,101 @@ class DocumentDetailView(APIView):
             'userPermission': permission
         })
 
+    def delete(self, request, doc_id):
+        try:
+            doc = VaultDocument.objects.get(id=doc_id)
+        except VaultDocument.DoesNotExist:
+            return Response({'error': 'Document not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        user_id = request.GET.get('userId') or (request.data.get('userId') if hasattr(request, 'data') and isinstance(request.data, dict) else None) or request.session.get('user_id')
+        if not user_id:
+            session_id = request.headers.get('X-Session-ID') or request.COOKIES.get('sessionid')
+            if session_id:
+                try:
+                    from django.contrib.sessions.models import Session
+                    s = Session.objects.get(session_key=session_id)
+                    user_id = s.get_decoded().get('user_id')
+                except Exception:
+                    pass
+        if not user_id and request.user.is_authenticated:
+            user_id = request.user.id
+
+        current_user = None
+        if user_id:
+            try:
+                current_user = CustomUser.objects.get(id=user_id)
+            except CustomUser.DoesNotExist:
+                pass
+
+        if not current_user:
+            return Response(
+                {'error': 'Authentication required to delete documents.'},
+                status=status.HTTP_401_UNAUTHORIZED
+            )
+
+        # Strictly only Document Owner or Admin can delete
+        is_owner = (doc.owner_id == current_user.id)
+        is_admin = (current_user.role == 'ADMIN')
+
+        if not is_owner and not is_admin:
+            log_audit(
+                request,
+                actor_id=current_user.id,
+                actor_name=current_user.name,
+                actor_email=current_user.email,
+                actor_role=current_user.role,
+                action='DOCUMENT_DELETE_DENIED',
+                target_id=doc.id,
+                target_name=doc.title,
+                severity='CRITICAL',
+                outcome='DENIED',
+                details={'reason': 'Unauthorized deletion attempt by non-owner / non-admin'}
+            )
+            return Response(
+                {'error': 'Unauthorized: Only the document owner or an Administrator can delete this document.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        doc_title = doc.title
+        doc_classification = doc.classification
+        doc_id_val = doc.id
+
+        # Delete physical file on disk if exists
+        try:
+            if doc.file and hasattr(doc.file, 'storage') and doc.file.storage.exists(doc.file.name):
+                doc.file.delete(save=False)
+        except Exception:
+            pass
+
+        # Clean up related notifications
+        try:
+            AdminNotification.objects.filter(target_resource_id=doc_id_val).delete()
+        except Exception:
+            pass
+
+        # Delete document record (automatically cascades to DocumentGrant & DocumentVersion)
+        doc.delete()
+
+        # Log audit event
+        log_audit(
+            request,
+            actor_id=current_user.id,
+            actor_name=current_user.name,
+            actor_email=current_user.email,
+            actor_role=current_user.role,
+            action='DOCUMENT_DELETE',
+            target_id=doc_id_val,
+            target_name=doc_title,
+            severity='WARNING',
+            outcome='SUCCESS',
+            details={'classification': doc_classification}
+        )
+
+        return Response({
+            'success': True,
+            'message': f'Document "{doc_title}" deleted permanently from the vault.'
+        }, status=status.HTTP_200_OK)
+
 
 @method_decorator(csrf_exempt, name='dispatch')
 class DocumentGrantView(APIView):

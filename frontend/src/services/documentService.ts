@@ -42,8 +42,26 @@ export const documentService = {
   },
 
   async getDocumentById(id: string, currentUser: User): Promise<{ document: VaultDocument; userPermission: PermissionLevel | 'NONE' | 'REVOKED' }> {
-    const docs = getStoredDocuments();
-    const doc = docs.find((d) => d.id === id);
+    let docs = getStoredDocuments();
+    let doc = docs.find((d) => d.id === id);
+
+    if (!doc) {
+      try {
+        const res = await fetch(`/api/documents/${encodeURIComponent(id)}/?userId=${encodeURIComponent(currentUser.id)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.document) {
+            doc = data.document;
+            setStoredDocuments([...docs, doc!]);
+            return {
+              document: doc!,
+              userPermission: data.userPermission || 'NONE',
+            };
+          }
+        }
+      } catch {}
+    }
+
     if (!doc) throw new Error('Document not found.');
 
     // Determine permission level for currentUser
@@ -230,31 +248,53 @@ export const documentService = {
   async deleteDocument(id: string, currentUser: User): Promise<void> {
     const docs = getStoredDocuments();
     const target = docs.find((d) => d.id === id);
-    if (!target) throw new Error('Document not found.');
 
-    if (target.ownerId !== currentUser.id && currentUser.role !== 'OWNER' && currentUser.role !== 'ADMIN') {
-      appendStoredAuditLog({
-        id: `audit-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        actorId: currentUser.id,
-        actorName: currentUser.name,
-        actorEmail: currentUser.email,
-        actorRole: currentUser.role,
-        action: 'DOC_DELETE',
-        targetResourceId: target.id,
-        targetResourceName: target.title,
-        severity: 'CRITICAL',
-        ipAddress: '198.51.100.12',
-        userAgent: navigator.userAgent,
-        outcome: 'DENIED',
-        details: { reason: 'Unauthorized document deletion attempt' },
+    // Call backend API to delete from PostgreSQL and clean up grants/versions
+    try {
+      const sessionId = localStorage.getItem('tv_session_id') || '';
+      const res = await fetch(`/api/documents/${encodeURIComponent(id)}/?userId=${encodeURIComponent(currentUser.id)}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionId ? { 'X-Session-ID': sessionId } : {}),
+        },
+        credentials: 'include',
       });
-      throw new Error('Access Denied: Only document owner or Security Admin can delete documents.');
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        const errMsg = errData.error || 'Server rejected document deletion.';
+        appendStoredAuditLog({
+          id: `audit-${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          actorId: currentUser.id,
+          actorName: currentUser.name,
+          actorEmail: currentUser.email,
+          actorRole: currentUser.role,
+          action: 'DOC_DELETE',
+          targetResourceId: id,
+          targetResourceName: target?.title || id,
+          severity: 'CRITICAL',
+          ipAddress: '198.51.100.12',
+          userAgent: navigator.userAgent,
+          outcome: 'DENIED',
+          details: { reason: errMsg },
+        });
+        throw new Error(errMsg);
+      }
+    } catch (err: any) {
+      if (err.message && (err.message.includes('Unauthorized') || err.message.includes('Access Denied') || err.message.includes('Server rejected'))) {
+        throw err;
+      }
+      // If network error occurred, still report error
+      throw new Error(err.message || 'Failed to communicate with document vault server.');
     }
 
     const filtered = docs.filter((d) => d.id !== id);
     setStoredDocuments(filtered);
-    notificationService.notifyUserAction('DOC_DELETE', currentUser, target.title);
+    if (target) {
+      notificationService.notifyUserAction('DOC_DELETE', currentUser, target.title);
+    }
 
     appendStoredAuditLog({
       id: `audit-${Date.now()}`,
@@ -264,13 +304,13 @@ export const documentService = {
       actorEmail: currentUser.email,
       actorRole: currentUser.role,
       action: 'DOC_DELETE',
-      targetResourceId: target.id,
-      targetResourceName: target.title,
+      targetResourceId: id,
+      targetResourceName: target?.title || id,
       severity: 'WARNING',
       ipAddress: '198.51.100.12',
       userAgent: navigator.userAgent,
       outcome: 'SUCCESS',
-      details: { deletedDocument: target.title },
+      details: { deletedDocument: target?.title || id },
     });
   },
 

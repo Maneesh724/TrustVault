@@ -137,108 +137,23 @@ export const OwnerDashboardPage: React.FC = () => {
     }
   };
 
-  // Sample seed files matching the screenshot if user hasn't uploaded 8+ docs yet
-  const defaultSampleDocs = useMemo(() => [
-    {
-      id: 'doc-s1',
-      title: 'Project_Report.pdf',
-      filename: 'Project_Report.pdf',
-      type: 'PDF',
-      size: '2.4 MB',
-      folder: 'Work',
-      uploadedOn: '26 Apr 2025, 04:12 PM',
-      sharingStatus: 'Shared',
-    },
-    {
-      id: 'doc-s2',
-      title: 'Design_Figma.fig',
-      filename: 'Design_Figma.fig',
-      type: 'Figma',
-      size: '1.8 MB',
-      folder: 'Designs',
-      uploadedOn: '25 Apr 2025, 11:30 AM',
-      sharingStatus: 'Private',
-    },
-    {
-      id: 'doc-s3',
-      title: 'Database_Backup.sql',
-      filename: 'Database_Backup.sql',
-      type: 'SQL',
-      size: '3.2 MB',
-      folder: 'Databases',
-      uploadedOn: '24 Apr 2025, 06:45 PM',
-      sharingStatus: 'Shared',
-    },
-    {
-      id: 'doc-s4',
-      title: 'Meeting_Notes.docx',
-      filename: 'Meeting_Notes.docx',
-      type: 'DOCX',
-      size: '1.1 MB',
-      folder: 'Meetings',
-      uploadedOn: '22 Apr 2025, 02:18 PM',
-      sharingStatus: 'Private',
-    },
-    {
-      id: 'doc-s5',
-      title: 'AI_Research.pdf',
-      filename: 'AI_Research.pdf',
-      type: 'PDF',
-      size: '4.7 MB',
-      folder: 'Research',
-      uploadedOn: '20 Apr 2025, 10:22 AM',
-      sharingStatus: 'Shared',
-    },
-    {
-      id: 'doc-s6',
-      title: 'Personal_Pictures.zip',
-      filename: 'Personal_Pictures.zip',
-      type: 'ZIP',
-      size: '8.9 MB',
-      folder: 'Personal',
-      uploadedOn: '18 Apr 2025, 09:15 PM',
-      sharingStatus: 'Private',
-    },
-    {
-      id: 'doc-s7',
-      title: 'Resume.pdf',
-      filename: 'Resume.pdf',
-      type: 'PDF',
-      size: '612 KB',
-      folder: 'Personal',
-      uploadedOn: '15 Apr 2025, 01:02 PM',
-      sharingStatus: 'Private',
-    },
-    {
-      id: 'doc-s8',
-      title: 'Presentation.pptx',
-      filename: 'Presentation.pptx',
-      type: 'PPTX',
-      size: '5.2 MB',
-      folder: 'Work',
-      uploadedOn: '12 Apr 2025, 03:45 PM',
-      sharingStatus: 'Shared',
-    },
-  ], []);
+  // Metric calculations based on real documents
+  const totalFoldersCount = useMemo(() => {
+    const folders = new Set(documents.map((d) => d.tags?.[0] || 'Work'));
+    return documents.length > 0 ? folders.size : 0;
+  }, [documents]);
 
-  // Merged documents display list
+  const sharedDocumentsCount = useMemo(() => {
+    return documents.filter((d) => d.grants && d.grants.length > 0).length;
+  }, [documents]);
+
+  const activeSharesCount = useMemo(() => {
+    return documents.reduce((acc, d) => acc + (d.grants?.filter((g) => g.status === 'ACTIVE').length || 0), 0);
+  }, [documents]);
+
+  // Documents display list - only real documents in the vault
   const displayDocs = useMemo(() => {
-    if (documents.length >= 8) {
-      return documents.map((d) => ({
-        id: d.id,
-        title: d.title,
-        filename: d.filename,
-        type: d.filename.split('.').pop()?.toUpperCase() || 'PDF',
-        size: `${(d.fileSizeBytes / (1024 * 1024)).toFixed(1)} MB`,
-        folder: d.tags?.[0] || 'Work',
-        uploadedOn: new Date(d.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) + ', ' + new Date(d.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        sharingStatus: d.grants?.length > 0 ? 'Shared' : 'Private',
-        rawDoc: d,
-      }));
-    }
-
-    // Blend live uploaded documents with the reference items
-    const liveItems = documents.map((d) => ({
+    return documents.map((d) => ({
       id: d.id,
       title: d.title,
       filename: d.filename,
@@ -249,9 +164,7 @@ export const OwnerDashboardPage: React.FC = () => {
       sharingStatus: d.grants?.length > 0 ? 'Shared' : 'Private',
       rawDoc: d,
     }));
-
-    return [...liveItems, ...defaultSampleDocs.slice(liveItems.length)];
-  }, [documents, defaultSampleDocs]);
+  }, [documents]);
 
   // Filtered documents
   const filteredDocs = useMemo(() => {
@@ -353,10 +266,10 @@ export const OwnerDashboardPage: React.FC = () => {
           </div>
           <span className="text-xs font-medium text-slate-400 block">Total Documents</span>
           <div className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-1">
-            {documents.length > 0 ? documents.length : 12}
+            {documents.length}
           </div>
           <span className="text-[10px] text-emerald-400 font-semibold mt-1 block">
-            ↑ 2 since last week
+            ↑ {documents.length} vaulted
           </span>
         </div>
 
@@ -367,10 +280,10 @@ export const OwnerDashboardPage: React.FC = () => {
           </div>
           <span className="text-xs font-medium text-slate-400 block">Total Folders</span>
           <div className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-1">
-            5
+            {totalFoldersCount}
           </div>
           <span className="text-[10px] text-emerald-400 font-semibold mt-1 block">
-            ↑ 1 since last week
+            Organized categories
           </span>
         </div>
 
@@ -381,10 +294,10 @@ export const OwnerDashboardPage: React.FC = () => {
           </div>
           <span className="text-xs font-medium text-slate-400 block">Shared Documents</span>
           <div className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-1">
-            4
+            {sharedDocumentsCount}
           </div>
           <span className="text-[10px] text-emerald-400 font-semibold mt-1 block">
-            ↑ 1 since last week
+            Active permissions
           </span>
         </div>
 
@@ -395,10 +308,10 @@ export const OwnerDashboardPage: React.FC = () => {
           </div>
           <span className="text-xs font-medium text-slate-400 block">Active Shares</span>
           <div className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-1">
-            3
+            {activeSharesCount}
           </div>
           <span className="text-[10px] text-emerald-400 font-semibold mt-1 block">
-            ↑ 1 since last week
+            Recipient grants
           </span>
         </div>
 
@@ -409,10 +322,10 @@ export const OwnerDashboardPage: React.FC = () => {
           </div>
           <span className="text-xs font-medium text-slate-400 block">Expiring Soon</span>
           <div className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight mt-1">
-            1
+            0
           </div>
-          <span className="text-[10px] text-rose-400 font-semibold mt-1 block">
-            ↓ 1 since last week
+          <span className="text-[10px] text-slate-500 font-semibold mt-1 block">
+            Zero-trust monitor
           </span>
         </div>
       </div>
@@ -483,101 +396,111 @@ export const OwnerDashboardPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#161F33] text-slate-300">
-                  {paginatedDocs.map((doc) => {
-                    const isShared = doc.sharingStatus === 'Shared';
-                    return (
-                      <tr key={doc.id} className="hover:bg-slate-900/40 transition-colors">
-                        <td className="py-3 font-semibold text-white whitespace-nowrap">
-                          <div className="flex items-center gap-2.5">
-                            {renderFileIcon(doc.type)}
-                            <span>{doc.filename}</span>
-                          </div>
-                        </td>
-                        <td className="py-3 whitespace-nowrap">
-                          {renderTypeBadge(doc.type)}
-                        </td>
-                        <td className="py-3 text-slate-400 whitespace-nowrap text-[11px]">
-                          {doc.size}
-                        </td>
-                        <td className="py-3 text-slate-400 whitespace-nowrap text-[11px]">
-                          {doc.folder}
-                        </td>
-                        <td className="py-3 text-slate-400 whitespace-nowrap text-[11px]">
-                          {doc.uploadedOn}
-                        </td>
-                        <td className="py-3 whitespace-nowrap">
-                          <span
-                            className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
-                              isShared
-                                ? 'bg-[#10B981]/15 text-[#10B981] border border-emerald-500/30'
-                                : 'bg-slate-800 text-slate-400 border border-slate-700'
-                            }`}
-                          >
-                            {doc.sharingStatus}
-                          </span>
-                        </td>
-                        <td className="py-3 text-right pr-2 relative">
-                          <button
-                            onClick={() => setActiveMenuDocId(activeMenuDocId === doc.id ? null : doc.id)}
-                            className="p-1 rounded text-slate-500 hover:text-white transition-colors cursor-pointer"
-                          >
-                            <MoreVertical className="w-4 h-4" />
-                          </button>
-
-                          {/* Quick action menu */}
-                          {activeMenuDocId === doc.id && (
-                            <div className="absolute right-2 top-8 w-36 bg-[#0E1424] border border-slate-800 rounded-xl shadow-xl z-30 p-1.5 space-y-1 text-left animate-in fade-in">
-                              <button
-                                onClick={() => {
-                                  const raw = (doc as any).rawDoc;
-                                  if (raw) setPreviewDoc(raw);
-                                  setActiveMenuDocId(null);
-                                }}
-                                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer"
-                              >
-                                <Eye className="w-3.5 h-3.5 text-purple-400" />
-                                Preview
-                              </button>
-                              <button
-                                onClick={() => {
-                                  const raw = (doc as any).rawDoc;
-                                  if (raw) setManageAccessDoc(raw);
-                                  setActiveMenuDocId(null);
-                                }}
-                                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer"
-                              >
-                                <Share2 className="w-3.5 h-3.5 text-emerald-400" />
-                                Share
-                              </button>
-                              <button
-                                onClick={() => {
-                                  const raw = (doc as any).rawDoc;
-                                  if (raw) handleDownload(raw);
-                                  setActiveMenuDocId(null);
-                                }}
-                                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer"
-                              >
-                                <Download className="w-3.5 h-3.5 text-cyan-400" />
-                                Download
-                              </button>
-                              <button
-                                onClick={() => {
-                                  setDeleteDocId(doc.id);
-                                  setDeleteDocTitle(doc.title);
-                                  setIsDeleteOpen(true);
-                                  setActiveMenuDocId(null);
-                                }}
-                                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                Delete
-                              </button>
+                  {paginatedDocs.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-slate-500">
+                        <FileText className="w-8 h-8 mx-auto mb-2 opacity-40 text-slate-400" />
+                        <p className="text-sm font-medium text-slate-400">No documents found</p>
+                        <p className="text-xs text-slate-500 mt-1">Upload a document to securely store and share it in TrustVault.</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    paginatedDocs.map((doc) => {
+                      const isShared = doc.sharingStatus === 'Shared';
+                      return (
+                        <tr key={doc.id} className="hover:bg-slate-900/40 transition-colors">
+                          <td className="py-3 font-semibold text-white whitespace-nowrap">
+                            <div className="flex items-center gap-2.5">
+                              {renderFileIcon(doc.type)}
+                              <span>{doc.filename}</span>
                             </div>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                          </td>
+                          <td className="py-3 whitespace-nowrap">
+                            {renderTypeBadge(doc.type)}
+                          </td>
+                          <td className="py-3 text-slate-400 whitespace-nowrap text-[11px]">
+                            {doc.size}
+                          </td>
+                          <td className="py-3 text-slate-400 whitespace-nowrap text-[11px]">
+                            {doc.folder}
+                          </td>
+                          <td className="py-3 text-slate-400 whitespace-nowrap text-[11px]">
+                            {doc.uploadedOn}
+                          </td>
+                          <td className="py-3 whitespace-nowrap">
+                            <span
+                              className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
+                                isShared
+                                  ? 'bg-[#10B981]/15 text-[#10B981] border border-emerald-500/30'
+                                  : 'bg-slate-800 text-slate-400 border border-slate-700'
+                              }`}
+                            >
+                              {doc.sharingStatus}
+                            </span>
+                          </td>
+                          <td className="py-3 text-right pr-2 relative">
+                            <button
+                              onClick={() => setActiveMenuDocId(activeMenuDocId === doc.id ? null : doc.id)}
+                              className="p-1 rounded text-slate-500 hover:text-white transition-colors cursor-pointer"
+                            >
+                              <MoreVertical className="w-4 h-4" />
+                            </button>
+
+                            {/* Quick action menu */}
+                            {activeMenuDocId === doc.id && (
+                              <div className="absolute right-2 top-8 w-36 bg-[#0E1424] border border-slate-800 rounded-xl shadow-xl z-30 p-1.5 space-y-1 text-left animate-in fade-in">
+                                <button
+                                  onClick={() => {
+                                    const raw = (doc as any).rawDoc;
+                                    if (raw) setPreviewDoc(raw);
+                                    setActiveMenuDocId(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer"
+                                >
+                                  <Eye className="w-3.5 h-3.5 text-purple-400" />
+                                  Preview
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const raw = (doc as any).rawDoc;
+                                    if (raw) setManageAccessDoc(raw);
+                                    setActiveMenuDocId(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer"
+                                >
+                                  <Share2 className="w-3.5 h-3.5 text-emerald-400" />
+                                  Share
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const raw = (doc as any).rawDoc;
+                                    if (raw) handleDownload(raw);
+                                    setActiveMenuDocId(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-slate-300 hover:bg-slate-800 transition-colors cursor-pointer"
+                                >
+                                  <Download className="w-3.5 h-3.5 text-cyan-400" />
+                                  Download
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    setDeleteDocId(doc.id);
+                                    setDeleteDocTitle(doc.title);
+                                    setIsDeleteOpen(true);
+                                    setActiveMenuDocId(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  Delete
+                                </button>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -586,8 +509,9 @@ export const OwnerDashboardPage: React.FC = () => {
           {/* Table Pagination matching screenshot */}
           <div className="flex items-center justify-between pt-4 border-t border-[#161F33] text-xs text-slate-400 mt-4">
             <span>
-              Showing {(currentPage - 1) * itemsPerPage + 1} to{' '}
-              {Math.min(currentPage * itemsPerPage, filteredDocs.length)} of {filteredDocs.length} documents
+              {filteredDocs.length === 0
+                ? 'Showing 0 documents'
+                : `Showing ${(currentPage - 1) * itemsPerPage + 1} to ${Math.min(currentPage * itemsPerPage, filteredDocs.length)} of ${filteredDocs.length} documents`}
             </span>
             <div className="flex items-center gap-1.5">
               <button
