@@ -39,6 +39,7 @@ urlpatterns = [
     # Document Endpoints
     re_path(r'^documents/?$', DocumentListView.as_view(), name='document-list'),
     re_path(r'^documents/upload/?$', DocumentListView.as_view(), name='document-upload'),
+    re_path(r'^documents/(?P<doc_id>[^/]+)/delete/?$', DocumentDetailView.as_view(), name='document-delete-action'),
     re_path(r'^documents/(?P<doc_id>[^/]+)/?$', DocumentDetailView.as_view(), name='document-detail'),
     re_path(r'^documents/(?P<doc_id>[^/]+)/grant/?$', DocumentGrantView.as_view(), name='document-grant'),
     re_path(r'^documents/(?P<doc_id>[^/]+)/revoke/?$', DocumentRevokeView.as_view(), name='document-revoke'),
