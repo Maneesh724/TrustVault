@@ -116,6 +116,21 @@ export const documentService = {
     const docs = getStoredDocuments();
     const hash = payload.calculatedHash || (await calculateSHA256(payload.file));
 
+    // Convert file to base64 so it can be transmitted and permanently stored in DB
+    let fileBase64 = '';
+    try {
+      fileBase64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const res = reader.result as string;
+          const b64 = res.includes(',') ? res.split(',')[1] : res;
+          resolve(b64);
+        };
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(payload.file);
+      });
+    } catch {}
+
     try {
       const formData = new FormData();
       formData.append('title', payload.title);
@@ -125,6 +140,9 @@ export const documentService = {
       formData.append('downloadRestricted', String(payload.downloadRestricted));
       formData.append('ownerId', currentUser.id);
       formData.append('file', payload.file);
+      if (fileBase64) {
+        formData.append('fileBase64', fileBase64);
+      }
 
       if (payload.shareOption) {
         formData.append('shareOption', payload.shareOption);

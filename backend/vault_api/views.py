@@ -2,6 +2,7 @@ import os
 import sys
 import secrets
 import hashlib
+import base64
 import json
 import urllib.request
 from datetime import timedelta
@@ -42,6 +43,16 @@ AUTH_CONFIG = {
     'OTP_RATE_LIMIT_WINDOW_SECONDS': 300,  # 5 minutes
     'ADMIN_PROVISIONING_SECRET': os.environ.get('TRUSTVAULT_ADMIN_SECRET', 'TV-ADMIN-PROVISION-2026'),
 }
+
+
+def ensure_file_content_column():
+    try:
+        from django.db import connection
+        with connection.cursor() as cursor:
+            cursor.execute("ALTER TABLE vault_api_vaultdocument ADD COLUMN IF NOT EXISTS file_content TEXT DEFAULT '';")
+    except Exception:
+        pass
+
 
 
 def mask_email(email: str) -> str:
@@ -1580,9 +1591,17 @@ class DocumentListView(APIView):
         elif filename.lower().endswith(('.txt', '.csv', '.json', '.log', '.md')):
             file_mime = 'text/plain'
 
+        ensure_file_content_column()
+
+        b64_content = request.data.get('fileBase64', '').strip()
         if file_obj:
             content = file_obj.read()
             sha256 = hashlib.sha256(content).hexdigest()
+            if not b64_content:
+                try:
+                    b64_content = base64.b64encode(content).decode('ascii')
+                except Exception:
+                    pass
             file_obj.seek(0)
         else:
             sha256 = hashlib.sha256(f"{title}{timezone.now()}".encode()).hexdigest()
@@ -1599,7 +1618,8 @@ class DocumentListView(APIView):
             watermark_enabled=watermark_enabled,
             download_restricted=download_restricted,
             tags=tags if isinstance(tags, list) else [tags],
-            file=file_obj
+            file=file_obj,
+            file_content=b64_content
         )
 
         DocumentVersion.objects.create(
@@ -1925,20 +1945,39 @@ class DocumentDownloadView(APIView):
         is_preview = request.GET.get('preview') == '1' or request.GET.get('inline') == '1'
         disposition = 'inline' if is_preview else 'attachment'
 
-        # 1. If real file was uploaded to disk, stream the actual uploaded file
+        # 1. First priority: Check if persistent base64 binary content exists in database
+        b64_data = getattr(doc, 'file_content', '') or ''
+        if b64_data.strip():
+            try:
+                file_bytes = base64.b64decode(b64_data.strip())
+                response = HttpResponse(file_bytes, content_type=doc.mime_type or 'application/octet-stream')
+                response['Content-Disposition'] = f'{disposition}; filename="{doc.filename}"'
+                response['Content-Security-Policy'] = "frame-ancestors 'self' https://trust-vault-9c688.web.app https://trust-vault-9c688.firebaseapp.com http://localhost:5173 http://localhost:5174;"
+                return response
+            except Exception as e:
+                print(f"[DocumentDownloadView] b64decode error: {e}")
+
+        # 2. Second priority: If real file was uploaded to disk, stream the actual uploaded file
         if doc.file:
             try:
-                if os.path.exists(doc.file.path):
+                file_data = None
+                if hasattr(doc.file, 'path') and os.path.exists(doc.file.path):
                     with open(doc.file.path, 'rb') as f:
                         file_data = f.read()
+                elif hasattr(doc.file, 'open'):
+                    doc.file.open('rb')
+                    file_data = doc.file.read()
+                    doc.file.close()
+
+                if file_data:
                     response = HttpResponse(file_data, content_type=doc.mime_type or 'application/octet-stream')
                     response['Content-Disposition'] = f'{disposition}; filename="{doc.filename}"'
                     response['Content-Security-Policy'] = "frame-ancestors 'self' https://trust-vault-9c688.web.app https://trust-vault-9c688.firebaseapp.com http://localhost:5173 http://localhost:5174;"
                     return response
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[DocumentDownloadView] File read error: {e}")
 
-        # 2. Otherwise generate a fully valid, viewable binary PDF document
+        # 3. Otherwise generate a fully valid, viewable binary PDF document
         valid_pdf_payload = (
             b"%PDF-1.4\n% TrustVault Authenticated Download\n"
             b"1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n"

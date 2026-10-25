@@ -183,6 +183,7 @@ class VaultDocument(models.Model):
     download_restricted = models.BooleanField(default=False)
     tags = models.JSONField(default=list, blank=True)
     file = models.FileField(upload_to='vault_files/', null=True, blank=True)
+    file_content = models.TextField(blank=True, default='')
     created_at = models.DateTimeField(default=timezone.now)
     updated_at = models.DateTimeField(auto_now=True)
 
