@@ -6,16 +6,27 @@
 
 <p align="center">
   <strong>"Secure Documents. Trusted Access."</strong><br>
-  A high-assurance, zero-trust cryptographic document-sharing platform engineered to protect corporate files, prevent privilege escalation, enforce document-level discretionary access control, and maintain an immutable, tamper-evident audit trail.
+  A high-assurance, zero-trust cryptographic document-sharing platform engineered to protect enterprise assets, prevent privilege escalation, enforce document-level discretionary access control, and maintain an immutable, tamper-evident audit trail.
 </p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/Security-Zero--Trust_NIST_SP_800--207-10B981?style=for-the-badge" alt="Zero-Trust" />
   <img src="https://img.shields.io/badge/Backend-Django_REST_Framework-092E20?style=for-the-badge&logo=django" alt="Django" />
   <img src="https://img.shields.io/badge/Frontend-React_19_+_TypeScript-61DAFB?style=for-the-badge&logo=react" alt="React" />
+  <img src="https://img.shields.io/badge/Hosting-Firebase_Hosting-FFCA28?style=for-the-badge&logo=firebase" alt="Firebase" />
+  <img src="https://img.shields.io/badge/API_Cloud-Render_PaaS-46E3B7?style=for-the-badge&logo=render" alt="Render" />
   <img src="https://img.shields.io/badge/Hashing-Argon2id_RFC_9106-7C3AED?style=for-the-badge" alt="Argon2id" />
   <img src="https://img.shields.io/badge/Tests-11%2F11_Passed-success?style=for-the-badge" alt="Tests" />
 </p>
+
+---
+
+## Live Deployments & Endpoints
+
+- **Live Frontend (Firebase Hosting)**: [https://trust-vault-9c688.web.app](https://trust-vault-9c688.web.app)
+- **Secondary Firebase Domain**: [https://trust-vault-9c688.firebaseapp.com](https://trust-vault-9c688.firebaseapp.com)
+- **Live Backend API (Render Cloud)**: [https://trustvault-backend-jmrw.onrender.com](https://trustvault-backend-jmrw.onrender.com)
+- **GitHub Repository**: [https://github.com/Maneesh724/TrustVault.git](https://github.com/Maneesh724/TrustVault.git)
 
 ---
 
@@ -30,6 +41,8 @@
   - [Frontend Setup (React + Vite + Tailwind CSS)](#frontend-setup-react--vite--tailwind-css)
 - [6. Administrator Provisioning](#6-administrator-provisioning)
 - [7. Environment Variables Configuration](#7-environment-variables-configuration)
+  - [Brevo HTTPS API (Recommended for Cloud Hosts)](#brevo-https-api-recommended-for-cloud-hosts)
+  - [SMTP Fallback Configuration](#smtp-fallback-configuration)
 - [8. Automated Test Suite & Verification](#8-automated-test-suite--verification)
 - [9. Repository Structure](#9-repository-structure)
 - [10. Threat Model & Compliance](#10-threat-model--compliance)
@@ -38,20 +51,24 @@
 
 ## 1. Security Guarantees & Zero-Trust Architecture
 
-- **Mandatory Administrator Approval Gate**:
-  All Document Owner registrations require administrator sign-off. Upon verifying their email via a single-use 6-digit cryptographic OTP, accounts are stored in `PENDING_APPROVAL`. The authentication gate strictly rejects sign-in attempts with `403 Forbidden` until an Administrator inspects and activates the account via the dedicated Owner Approvals dashboard.
-- **Anti-Privilege Escalation**:
-  Public registration endpoints strictly reject `role: "ADMIN"` with `403 Forbidden` and trigger an immediate high-severity security audit event. Administrators can only be provisioned through server-side CLI procedures (`python manage.py provision_admin`).
-- **Cryptographic Single-Use OTPs (Email & Mobile)**:
-  OTPs are generated via cryptographically secure random number generators (`secrets.randbelow`), stored strictly as salted SHA-256 hashes, bounded by a strict 5-minute (300s) time-to-live (TTL), and rate-limited to prevent brute-force attacks (max 5 verification attempts before invalidation). Live production dispatches use Gmail SMTP over STARTTLS (port 587).
+- **Global Zero-Trust Route Lock-Down & In-Tab Session Isolation**:
+  Protected routes (`/admin/*`, `/owner/*`, `/viewer/*`, `/documents`) strictly require an explicit cryptographic in-tab session token (`trustvault_active_session` in `sessionStorage`). Direct URL deep-linking or cold navigation without an active in-tab sign-in immediately aborts with an HTTP 403 Forbidden redirect to [`/access-denied`](https://trust-vault-9c688.web.app/access-denied), preventing background cookie poisoning and credential leakage. Unmapped paths route to a hardened HTTP 404 security blocker.
+- **Relational Binary Persistence & Non-Volatile Streaming**:
+  Documents are redundantly persisted both as Base64 binaries in the relational database (`VaultDocument.file_content`) and as non-deterministic UUIDs on disk. This guarantees that ephemeral cloud container restarts (such as Render or Docker redeployments) never lose uploaded document binaries or corrupt PDF streams.
+- **Authorized Document Deletion & Lifecycle Governance**:
+  Document Owners and Administrators can permanently expunge documents via `DELETE /api/documents/<id>/` or `POST /api/documents/<id>/delete/`. Deletions perform a verified atomic purge: revoking active grants, deleting database records, removing underlying filesystem binaries, synchronizing real-time Firestore state, and recording an immutable `DOC_DELETE` audit event.
+- **Dual-Mode High-Assurance Email OTP Dispatch**:
+  OTPs are generated via cryptographically secure random number generators (`secrets.randbelow`), stored as salted SHA-256 hashes with a 5-minute (300s) TTL, and capped at 5 invalid verification attempts. In cloud production (Render), outbound SMTP ports (25/465/587) are firewalled; TrustVault uses **Brevo HTTPS REST API (Port 443)** for guaranteed global delivery, with automatic fallback to standard SMTP.
 - **RFC 9106 Argon2id Password Hashing**:
   All user credentials are protected using memory-hard Argon2id key derivation (`time_cost=1`, `memory_cost=19456`, `parallelism=2`), providing ASIC and GPU cracking resistance while ensuring interactive web logins complete under 80ms.
-- **Dynamic Authorization & Immediate Revocation**:
-  Access permissions are evaluated in real time at the database layer on every document read or download attempt. Revoking access immediately denies subsequent file access without waiting for token expirations.
+- **Mandatory Administrator Approval Gate**:
+  All Document Owner registrations require administrator sign-off. Upon verifying email OTP, accounts enter `PENDING_APPROVAL`. The authentication gate strictly rejects sign-in attempts with `403 Forbidden` until an Administrator inspects and activates the account via the Owner Approvals dashboard.
+- **Anti-Privilege Escalation**:
+  Public registration endpoints strictly reject `role: "ADMIN"` with `403 Forbidden` and trigger an immediate high-severity security audit event. Administrators can only be provisioned through server-side CLI procedures (`python manage.py provision_admin`).
 - **Immutable Append-Only Audit Trail**:
-  Every authentication event, registration attempt, document upload, grant creation, file download, and administrative decision is committed to a tamper-evident audit ledger. Record updates and deletions raise `PermissionError` at both the application and database tiers.
+  Every authentication event, registration attempt, document upload, grant creation, file download, deletion, and administrative decision is committed to a tamper-evident audit ledger. Record updates and deletions raise `PermissionError` at both application and database tiers.
 - **Firebase Firestore Cloud Database**:
-  Connected to Google Cloud Firebase Firestore (`trust-vault-9c688`) for real-time document and user synchronization across `users`, `documents`, `audit_logs`, and `notifications` collections with live reactive listeners (`onSnapshot`).
+  Integrated with Google Cloud Firebase Firestore (`trust-vault-9c688`) for real-time document and user synchronization across `users`, `documents`, `audit_logs`, and `notifications` collections with live reactive listeners (`onSnapshot`).
 
 ---
 
@@ -62,10 +79,11 @@
 | **System Overview & Health Telemetry** | Full Access | No Access | No Access |
 | **Owner Registration Approval / Rejection** | Full Access | No Access | No Access |
 | **User Directory & Account Suspension** | Full Access | No Access | No Access |
-| **Global Document Oversight** | Read Metadata Only | Own Documents Only | Granted Documents Only |
+| **Global Document Oversight** | Read Metadata & Delete | Own Documents Only | Granted Documents Only |
 | **Document Upload & Encryption** | Restricted | Full Access | No Access |
 | **Discretionary Permission Delegation** | Restricted | Full Access | No Access |
 | **Immediate Grant Revocation** | Restricted | Full Access | No Access |
+| **Document Deletion & Purge** | Full Access | Own Documents Only | No Access |
 | **Read / Preview Authorized Documents** | Audit View Only | Full Access | Granted Documents Only |
 | **Download Authorized Documents** | Audit View Only | Full Access | Granted Documents (If Permitted) |
 | **Immutable Security Audit Trail** | Full System Logs | Document-Specific Logs | No Access |
@@ -77,18 +95,21 @@
 
 ```mermaid
 flowchart TD
-    subgraph Client["Client Tier (React 19 + TypeScript + Vite)"]
-        UI["Obsidian Cyber UI / Tailwind CSS"]
+    subgraph Client["Client Tier (React 19 + TypeScript + Vite on Firebase Hosting)"]
+        UI["Enterprise UI / Tailwind CSS"]
         Router["Dynamic Role Router & PageTitleHandler"]
+        SessionGuard["In-Tab Cryptographic Session Guard (sessionStorage)"]
+        AccessDenied["Access Denied Shield (/access-denied 403)"]
+        NotFound["Security Blocker (/not-found 404)"]
         AuthCtx["Zero-Trust Session Guard (AuthContext)"]
     end
 
-    subgraph Gateway["API & Security Gateway (Django REST Framework)"]
-        Proxy["Vite Reverse Proxy (/api/*)"]
+    subgraph CloudGateway["API & Security Gateway (Django REST Framework on Render)"]
+        CorsProxy["CORS & CSRF Security Firewall"]
         AuthView["Authentication & Login Engine"]
-        OTPView["Cryptographic OTP Dispatcher (Gmail SMTP)"]
+        OTPView["Email OTP Dispatcher (Brevo HTTPS 443 / SMTP)"]
         ApprovalGate["Admin Registration Gate (PENDING_APPROVAL)"]
-        DocView["Discretionary Document Vault API"]
+        DocView["Discretionary Document Vault API (Base64 + Stream)"]
         AuditView["Immutable Audit Logger"]
     end
 
@@ -96,13 +117,17 @@ flowchart TD
         Argon2["Argon2id Hasher (RFC 9106)"]
         SHA256["Document Integrity Engine (SHA-256)"]
         VaultStorage["Private Encrypted File System (UUIDs)"]
-        Database[("Relational Database (SQLite / PostgreSQL)")]
+        Database[("Relational Database (PostgreSQL / SQLite)")]
+        Firestore[("Google Firebase Firestore (Real-time Cloud Sync)")]
     end
 
     UI --> Router
-    Router --> AuthCtx
-    AuthCtx --> Proxy
-    Proxy --> Gateway
+    Router --> SessionGuard
+    SessionGuard -- "No Active In-Tab Session" --> AccessDenied
+    SessionGuard -- "Unmapped Route" --> NotFound
+    SessionGuard -- "Valid Session" --> AuthCtx
+    AuthCtx --> CorsProxy
+    CorsProxy --> CloudGateway
     OTPView --> Database
     AuthView --> Argon2
     AuthView --> ApprovalGate
@@ -110,7 +135,8 @@ flowchart TD
     DocView --> SHA256
     DocView --> VaultStorage
     DocView --> Database
-    Gateway --> AuditView
+    CloudGateway --> Firestore
+    CloudGateway --> AuditView
     AuditView --> Database
 ```
 
@@ -136,10 +162,14 @@ flowchart TD
    - Confidentiality classification tagging (Public, Internal, Confidential, Restricted).
    - Document-level permission management (granting Read/Download rights to verified viewers).
    - Instant grant revocation that blocks access in real time.
+   - Permanent document deletion with atomic cascade and audit logging.
 5. **Viewer Workspace (`/viewer/dashboard`, `/viewer/shared`)**:
    - Clean repository of documents shared with the authenticated viewer.
    - Streamlined navigation containing only active features (Dashboard, Shared With Me, Profile & Security).
-   - Access-controlled secure download requests verified on every hit.
+   - Access-controlled secure download and inline viewing requests verified on every hit.
+6. **Zero-Trust URL Route Protection (`/access-denied`, `/not-found`)**:
+   - Direct manual URL entry or cross-tab deep-linking into protected zones without active authentication redirects to an explicit HTTP 403 Forbidden screen.
+   - High-contrast alert badge displaying the unauthorized target resource and zero-trust violation rationale.
 
 ---
 
@@ -223,21 +253,29 @@ python manage.py provision_admin --email admin@trustvault.com --name "Security A
 
 ## 7. Environment Variables Configuration
 
-Copy `backend/.env.example` to `backend/.env` and update the parameters:
+### Brevo HTTPS API (Recommended for Cloud Hosts like Render)
+Cloud container platforms (Render free tier, AWS lightsail, etc.) restrict outbound connections on SMTP ports 25, 465, and 587. TrustVault provides direct integration with Brevo's HTTPS REST API over **port 443** (never blocked):
+
+| Variable | Description | Example / Recommended Setting |
+| :--- | :--- | :--- |
+| `BREVO_API_KEY` | Brevo Master API Key (Settings -> SMTP & API -> API Keys) | `xkeysib-xxxxxxxxxxxxxxxxxxxxxxxx` |
+| `BREVO_SENDER_EMAIL` | Sender email verified in your Brevo account | `your-verified-email@gmail.com` |
+
+### SMTP Fallback Configuration (Local / Traditional VPS)
 
 | Variable | Description | Recommended Setting |
 | :--- | :--- | :--- |
-| `SECRET_KEY` | Django cryptographic signing secret | Generate a strong 64-char key |
+| `DJANGO_SECRET_KEY` | Django cryptographic signing secret | Generate a strong 64-character random key |
 | `DEBUG` | Enable / disable Django debug mode | `False` for production, `True` for dev |
-| `ALLOWED_HOSTS` | Permitted hostnames | `localhost,127.0.0.1` |
-| `EMAIL_HOST` | SMTP server hostname | `smtp.gmail.com` |
-| `EMAIL_PORT` | SMTP port | `587` |
-| `EMAIL_USE_TLS` | Enable STARTTLS | `True` |
-| `EMAIL_HOST_USER` | Gmail account for live OTP dispatch | `your-service@gmail.com` |
-| `EMAIL_HOST_PASSWORD` | Google 16-character App Password | `xxxx xxxx xxxx xxxx` |
-| `DEFAULT_FROM_EMAIL` | Sender address matching host user | `TrustVault Security <your-service@gmail.com>` |
+| `ALLOWED_HOSTS` | Permitted hostnames | `localhost,127.0.0.1,trustvault-backend-jmrw.onrender.com` |
+| `EMAIL_HOST` | SMTP server hostname | `smtp-relay.brevo.com` or `smtp.gmail.com` |
+| `EMAIL_PORT` | SMTP port (safely parsed, defaults to 587) | `587` (STARTTLS) or `465` (SSL) |
+| `EMAIL_USE_TLS` | Enable STARTTLS | `True` (auto-disabled if port 465 is used) |
+| `EMAIL_HOST_USER` | SMTP username or Brevo login email | `your-account@gmail.com` |
+| `EMAIL_HOST_PASSWORD` | SMTP password (or Brevo `xsmtpsib-...` key) | `your_smtp_password` |
+| `DEFAULT_FROM_EMAIL` | Display sender address | `TrustVault Security <your-account@gmail.com>` |
 
-> **Note on Security**: Never commit passwords or app secrets to source control. `.env` is ignored by `.gitignore`.
+> **Note on Security**: Never commit passwords or API keys to source control. `.env` is explicitly ignored by `.gitignore`.
 
 ---
 
@@ -273,7 +311,7 @@ TrustVault/
 │   ├── manage.py                   # Management utility
 │   ├── requirements.txt            # Python dependencies (Django, DRF, argon2-cffi)
 │   ├── trustvault_backend/         # Core settings and URL routing
-│   │   ├── settings.py             # Security settings, Argon2id & SMTP config
+│   │   ├── settings.py             # Security settings, Argon2id & Brevo/SMTP config
 │   │   └── urls.py                 # Root URL routing
 │   ├── vault_api/                  # Vault security application
 │   │   ├── models.py               # CustomUser, VaultDocument, DocumentGrant, AuditRecord
@@ -281,31 +319,32 @@ TrustVault/
 │   │   ├── views.py                # OTP, Authentication, Document & Audit endpoints
 │   │   ├── serializers.py          # Strict payload validation serializers
 │   │   ├── tests.py                # Automated security test suite
+│   │   ├── migrations/             # Linear schema migrations (0001, 0002, 0003)
 │   │   └── management/commands/    # CLI admin bootstrap commands
 │   └── vault_storage/              # Non-deterministic UUID private storage
 ├── frontend/                       # React 19 + TypeScript + Vite Client
 │   ├── index.html                  # Branded entry page with TrustVault metadata
 │   ├── package.json                # Dependencies & build scripts
+│   ├── firebase.json               # Firebase Hosting configuration & rewrites
 │   ├── public/
 │   │   └── favicon.svg             # Custom TrustVault Shield & Vault Lock logo
 │   └── src/
-│       ├── App.tsx                 # Dynamic route guards & PageTitleHandler
+│       ├── App.tsx                 # Zero-trust route guards, in-tab isolation & PageTitleHandler
 │       ├── components/             # Reusable UI components
 │       │   ├── layout/             # Sidebar, Navbar, AppLayout
 │       │   └── documents/          # UploadModal, AccessManageModal, DocumentPreviewModal
-│       ├── context/                # AuthContext, ToastContext
+│       ├── context/                # AuthContext (session isolation), ToastContext
 │       ├── pages/                  # Role-based workspace screens
 │       │   ├── admin/              # AdminDashboardPage (Dashboard, Approvals, Users)
-│       │   ├── auth/               # LoginPage, Register pages, OTP verification
+│       │   ├── auth/               # LoginPage, Register, AccessDeniedPage, NotFoundPage
 │       │   ├── dashboard/          # OwnerDashboardPage
 │       │   ├── documents/          # DocumentLibraryPage (Global Oversight & Library)
 │       │   ├── audit/              # AuditTrailPage
 │       │   └── security/           # SecurityCenterPage
-│       ├── services/               # API clients (authService, documentService, etc.)
+│       ├── services/               # API clients (authService, documentService, firebaseService)
 │       └── types/                  # Strict TypeScript domain interfaces
 ├── README.md                       # Comprehensive platform documentation
-├── prompts.md                      # Engineering prompt history & architectural decisions
-├── PROMPT.md                       # Canonical prompt record
+├── PROMPTS.md                      # Engineering prompt history & architectural decisions
 └── THREATS.md                      # STRIDE threat model & cryptographic matrix
 ```
 
@@ -316,6 +355,6 @@ TrustVault/
 For a complete breakdown of potential attack vectors, STRIDE mitigations, and implementation mappings, refer to [THREATS.md](file:///c:/Users/MANEESH/OneDrive/Desktop/TrustVault/THREATS.md).
 
 This system adheres to:
-- **NIST SP 800-207**: Zero Trust Architecture Standards
-- **OWASP Top 10 (2021)**: Full mitigation against Broken Access Control, Cryptographic Failures, and Injection
-- **RFC 9106**: Argon2id Profile for Interactive Authentication
+- **NIST SP 800-207**: Zero Trust Architecture Standards (Explicit verification, least-privilege access, assume breach).
+- **OWASP Top 10 (2021)**: Full mitigation against Broken Access Control (A01), Cryptographic Failures (A02), and Security Misconfiguration (A05).
+- **RFC 9106**: Argon2id Profile for Interactive Authentication.

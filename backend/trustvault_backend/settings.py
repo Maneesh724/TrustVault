@@ -208,11 +208,22 @@ CSRF_COOKIE_SECURE = True
 # 17. HTTPS & Proxy Security (Render / Production)
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-# 18. Email Configuration (Gmail SMTP over STARTTLS port 587)
+# 18. Email Configuration (Gmail / Brevo SMTP or HTTPS API fallback)
 EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
-EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
-EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 587))
-EMAIL_USE_TLS = True
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp-relay.brevo.com' if os.environ.get('BREVO_API_KEY') or 'brevo' in os.environ.get('EMAIL_HOST_USER', '').lower() else 'smtp.gmail.com')
+
+raw_port = os.environ.get('EMAIL_PORT', '587').strip().strip('"').strip("'")
+try:
+    EMAIL_PORT = int(raw_port) if raw_port else 587
+except (ValueError, TypeError):
+    EMAIL_PORT = 587
+
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').strip().lower() in ('true', '1', 'yes')
+EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', 'False').strip().lower() in ('true', '1', 'yes')
+if EMAIL_PORT == 465 or EMAIL_USE_SSL:
+    EMAIL_USE_SSL = True
+    EMAIL_USE_TLS = False
+
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '').strip()
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '').replace(' ', '').strip().strip('"').strip("'")
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL') or EMAIL_HOST_USER

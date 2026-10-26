@@ -120,6 +120,10 @@ def send_live_email(to_email: str, subject: str, message: str) -> None:
     """
     resend_key = os.environ.get('RESEND_API_KEY', '').replace('"', '').replace("'", '').strip()
     brevo_key = os.environ.get('BREVO_API_KEY', '').replace('"', '').replace("'", '').strip()
+    smtp_pass = os.environ.get('EMAIL_HOST_PASSWORD', '').replace('"', '').replace("'", '').strip()
+    if not brevo_key and smtp_pass.startswith('xkeysib-'):
+        brevo_key = smtp_pass
+
     sendgrid_key = os.environ.get('SENDGRID_API_KEY', '').replace('"', '').replace("'", '').strip()
 
     errors = []
@@ -127,12 +131,16 @@ def send_live_email(to_email: str, subject: str, message: str) -> None:
     # 1. Brevo API (HTTPS port 443) - Preferred: Can deliver to ANY recipient
     if brevo_key:
         try:
-            sender_email = (
+            raw_sender = (
                 os.environ.get('BREVO_SENDER_EMAIL')
                 or os.environ.get('DEFAULT_FROM_EMAIL')
                 or os.environ.get('EMAIL_HOST_USER')
                 or 'maneeshgopisetty5@gmail.com'
             ).replace('"', '').replace("'", '').strip()
+            # Extract raw email address if format is "Name <email@domain.com>"
+            email_match = re.search(r'[\w\.-]+@[\w\.-]+\.\w+', raw_sender)
+            sender_email = email_match.group(0) if email_match else raw_sender
+
             payload = json.dumps({
                 'sender': {'email': sender_email, 'name': 'TrustVault Security'},
                 'to': [{'email': to_email}],
@@ -214,12 +222,17 @@ def send_live_email(to_email: str, subject: str, message: str) -> None:
             print(f"[SendGrid Error]: {e}")
             errors.append(f"SendGrid: {str(e)}")
 
+    # 4. Standard SMTP fallback (port 587 / 465)
+    try:
+        from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None) or getattr(settings, 'EMAIL_HOST_USER', None) or 'noreply@trustvault.com'
+        send_mail(subject, message, from_email, [to_email], fail_silently=False)
+        return
+    except Exception as e:
+        print(f"[SMTP Error]: {e}")
+        errors.append(f"SMTP ({getattr(settings, 'EMAIL_HOST', 'unknown')}): {str(e)}")
+
     if errors:
         raise Exception(" | ".join(errors))
-
-    # 4. Standard SMTP fallback (port 587)
-    from_email = getattr(settings, 'DEFAULT_FROM_EMAIL', None) or getattr(settings, 'EMAIL_HOST_USER', None) or 'noreply@trustvault.com'
-    send_mail(subject, message, from_email, [to_email], fail_silently=False)
 
 
 # ============================================================================
@@ -289,7 +302,7 @@ class SendEmailOtpView(APIView):
             print(f"[Email OTP Delivery Error]: {e}")
             return Response(
                 {
-                    'error': f'Failed to send verification email: {str(e)}. Please verify EMAIL_HOST_USER and EMAIL_HOST_PASSWORD are set on the server.'
+                    'error': f'Failed to send verification email: {str(e)}. If hosted on Render, ensure BREVO_API_KEY and a verified sender email are configured in environment variables.'
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
