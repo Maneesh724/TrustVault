@@ -46,6 +46,7 @@ const ProtectedRoute: React.FC<{
   allowedRoles?: UserRole[];
 }> = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -55,8 +56,27 @@ const ProtectedRoute: React.FC<{
     );
   }
 
+  // Zero-Trust Admin Route Guard:
+  // Direct URL navigation to /admin/* without verified active admin credentials MUST show Access Denied Error
+  if (allowedRoles && allowedRoles.includes('ADMIN')) {
+    const hasAdminSession = typeof window !== 'undefined' && sessionStorage.getItem('trustvault_admin_session') === 'active';
+    if (!user || user.role !== 'ADMIN' || !hasAdminSession) {
+      return (
+        <Navigate
+          to="/access-denied"
+          replace
+          state={{
+            from: location.pathname,
+            reason: 'ADMIN_UNAUTHORIZED',
+            message: 'Direct Access Denied: Administrator Dashboard is protected by Zero-Trust Role Guards. Direct URL access is prohibited without administrator authentication.',
+          }}
+        />
+      );
+    }
+  }
+
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 
   // Account status guards
@@ -65,12 +85,32 @@ const ProtectedRoute: React.FC<{
   }
 
   if (user.status === 'SUSPENDED' || user.status === 'REJECTED') {
-    return <Navigate to="/access-denied" replace />;
+    return (
+      <Navigate
+        to="/access-denied"
+        replace
+        state={{
+          from: location.pathname,
+          reason: 'ACCOUNT_SUSPENDED',
+          message: 'Access Denied: Your account has been suspended or rejected by an Administrator.',
+        }}
+      />
+    );
   }
 
   // Role authorization guard
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/access-denied" replace />;
+    return (
+      <Navigate
+        to="/access-denied"
+        replace
+        state={{
+          from: location.pathname,
+          reason: 'ROLE_UNAUTHORIZED',
+          message: `Zero-Trust Access Denied: Your account role (${user.role}) is unauthorized to access ${location.pathname}.`,
+        }}
+      />
+    );
   }
 
   return <>{children}</>;

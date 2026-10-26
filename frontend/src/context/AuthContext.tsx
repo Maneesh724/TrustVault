@@ -50,6 +50,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const users = await authService.getAllUsers();
         setAllUsers(users);
         const current = await authService.getCurrentUser();
+        // Zero-Trust Administrator Guard:
+        // Direct / unverified URL navigation to admin must not inherit background session without active tab verification
+        if (current && current.role === 'ADMIN') {
+          const hasAdminSession = typeof window !== 'undefined' && sessionStorage.getItem('trustvault_admin_session') === 'active';
+          if (!hasAdminSession) {
+            setUser(null);
+            return;
+          }
+        }
         setUser(current);
       } catch (err) {
         console.error('Failed to initialize auth state', err);
@@ -77,6 +86,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string, rememberMe?: boolean): Promise<User> => {
     const loggedUser = await authService.login(email, password, rememberMe);
+    if (loggedUser.role === 'ADMIN') {
+      sessionStorage.setItem('trustvault_admin_session', 'active');
+    } else {
+      sessionStorage.removeItem('trustvault_admin_session');
+    }
     setUser(loggedUser);
     // Refresh directory asynchronously in the background so redirect is instantaneous
     refreshUsers().catch(console.error);
@@ -119,17 +133,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
+    sessionStorage.removeItem('trustvault_admin_session');
     await authService.logout();
     setUser(null);
   };
 
   const switchUser = async (userId: string) => {
     const target = await authService.switchUser(userId);
+    if (target.role === 'ADMIN') {
+      sessionStorage.setItem('trustvault_admin_session', 'active');
+    } else {
+      sessionStorage.removeItem('trustvault_admin_session');
+    }
     setUser(target);
     await refreshUsers();
   };
 
   const resetDemo = async () => {
+    sessionStorage.removeItem('trustvault_admin_session');
     resetAllDemoData();
     await refreshUsers();
   };
