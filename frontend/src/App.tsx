@@ -56,30 +56,35 @@ const ProtectedRoute: React.FC<{
     );
   }
 
-  // Zero-Trust Admin Route Guard:
-  // Direct URL navigation to /admin/* without verified active admin credentials MUST show Access Denied Error
-  if (allowedRoles && allowedRoles.includes('ADMIN')) {
-    const hasAdminSession = typeof window !== 'undefined' && sessionStorage.getItem('trustvault_admin_session') === 'active';
-    if (!user || user.role !== 'ADMIN' || !hasAdminSession) {
-      return (
-        <Navigate
-          to="/access-denied"
-          replace
-          state={{
-            from: location.pathname,
-            reason: 'ADMIN_UNAUTHORIZED',
-            message: 'Direct Access Denied: Administrator Dashboard is protected by Zero-Trust Role Guards. Direct URL access is prohibited without administrator authentication.',
-          }}
-        />
-      );
-    }
+  // 1. Zero-Trust In-Tab Session Verification
+  // Direct URL navigation without an active in-tab session token must NOT grant access or silently redirect to /login.
+  // It MUST immediately throw an Access Denied HTTP 403 error.
+  const activeSessionRaw = typeof window !== 'undefined' ? sessionStorage.getItem('trustvault_active_session') : null;
+  let hasValidActiveSession = false;
+  if (activeSessionRaw) {
+    try {
+      const parsed = JSON.parse(activeSessionRaw);
+      if (parsed && parsed.userId && user && parsed.userId === user.id) {
+        hasValidActiveSession = true;
+      }
+    } catch {}
   }
 
-  if (!user) {
-    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  if (!user || !hasValidActiveSession) {
+    return (
+      <Navigate
+        to="/access-denied"
+        replace
+        state={{
+          from: location.pathname,
+          reason: 'UNAUTHENTICATED_DIRECT_ACCESS',
+          message: `Zero-Trust Policy Enforced: Direct access to protected section "${location.pathname}" is restricted. Authentication and active cryptographic session are required.`,
+        }}
+      />
+    );
   }
 
-  // Account status guards
+  // 2. Account status guards
   if (user.status === 'PENDING_APPROVAL') {
     return <Navigate to="/owner/pending-approval" replace />;
   }
@@ -92,13 +97,13 @@ const ProtectedRoute: React.FC<{
         state={{
           from: location.pathname,
           reason: 'ACCOUNT_SUSPENDED',
-          message: 'Access Denied: Your account has been suspended or rejected by an Administrator.',
+          message: `Access Denied: Your account (${user.email}) has been ${user.status.toLowerCase()} by an Administrator.`,
         }}
       />
     );
   }
 
-  // Role authorization guard
+  // 3. Strict Role-Based Access Control (RBAC) Guard
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     return (
       <Navigate
@@ -107,7 +112,7 @@ const ProtectedRoute: React.FC<{
         state={{
           from: location.pathname,
           reason: 'ROLE_UNAUTHORIZED',
-          message: `Zero-Trust Access Denied: Your account role (${user.role}) is unauthorized to access ${location.pathname}.`,
+          message: `Zero-Trust Access Denied: Your account role (${user.role}) is unauthorized to access "${location.pathname}". This endpoint is restricted to [${allowedRoles.join(', ')}].`,
         }}
       />
     );
@@ -200,6 +205,7 @@ export const App: React.FC = () => {
               <Route path="settings" element={<ProfileSettingsPage />} />
               <Route path="profile" element={<ProfileSettingsPage />} />
               <Route path="ai" element={<AiAssistantPage />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Route>
 
             {/* ========================================================= */}
@@ -227,6 +233,7 @@ export const App: React.FC = () => {
               <Route path="profile" element={<ProfileSettingsPage />} />
               <Route path="settings" element={<ProfileSettingsPage />} />
               <Route path="ai" element={<AiAssistantPage />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Route>
 
             {/* ========================================================= */}
@@ -249,6 +256,7 @@ export const App: React.FC = () => {
               <Route path="notifications" element={<ViewerDashboardPage />} />
               <Route path="activity" element={<SharedDocumentsPage />} />
               <Route path="profile" element={<ProfileSettingsPage />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Route>
 
             {/* ========================================================= */}
@@ -257,63 +265,69 @@ export const App: React.FC = () => {
             <Route
               path="/dashboard"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={['OWNER', 'ADMIN', 'VIEWER']}>
                   <AppLayout />
                 </ProtectedRoute>
               }
             >
               <Route index element={<RoleBasedLanding />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Route>
             <Route
               path="/documents"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={['OWNER', 'ADMIN']}>
                   <AppLayout />
                 </ProtectedRoute>
               }
             >
               <Route index element={<DocumentLibraryPage />} />
               <Route path=":id" element={<DocumentDetailPage />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Route>
             <Route
               path="/shared"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={['VIEWER', 'OWNER', 'ADMIN']}>
                   <AppLayout />
                 </ProtectedRoute>
               }
             >
               <Route index element={<SharedDocumentsPage />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Route>
             <Route
               path="/audit"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={['ADMIN']}>
                   <AppLayout />
                 </ProtectedRoute>
               }
             >
               <Route index element={<AuditTrailPage />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Route>
             <Route
               path="/security"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={['ADMIN']}>
                   <AppLayout />
                 </ProtectedRoute>
               }
             >
               <Route index element={<SecurityCenterPage />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Route>
             <Route
               path="/settings"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute allowedRoles={['OWNER', 'ADMIN', 'VIEWER']}>
                   <AppLayout />
                 </ProtectedRoute>
               }
             >
               <Route index element={<ProfileSettingsPage />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Route>
 
             {/* ========================================================= */}

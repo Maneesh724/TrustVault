@@ -22,10 +22,7 @@ const STORAGE_KEYS = {
 // Purge any stale mock session IDs from previous sessions
 if (typeof window !== 'undefined') {
   try {
-    const currentId = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_ID);
-    if (currentId === 'user-002' || currentId === 'user-001' || currentId === 'user-003') {
-      localStorage.removeItem(STORAGE_KEYS.CURRENT_USER_ID);
-    }
+    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER_ID);
   } catch {}
 }
 

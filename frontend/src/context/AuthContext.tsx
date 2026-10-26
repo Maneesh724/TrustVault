@@ -49,19 +49,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const users = await authService.getAllUsers();
         setAllUsers(users);
-        const current = await authService.getCurrentUser();
-        // Zero-Trust Administrator Guard:
-        // Direct / unverified URL navigation to admin must not inherit background session without active tab verification
-        if (current && current.role === 'ADMIN') {
-          const hasAdminSession = typeof window !== 'undefined' && sessionStorage.getItem('trustvault_admin_session') === 'active';
-          if (!hasAdminSession) {
-            setUser(null);
-            return;
-          }
+
+        // Zero-Trust Session Verification:
+        // Direct cold URL entry without an active in-tab session token must NEVER inherit background sessions.
+        const activeSessionRaw = typeof window !== 'undefined' ? sessionStorage.getItem('trustvault_active_session') : null;
+        if (!activeSessionRaw) {
+          setUser(null);
+          return;
         }
-        setUser(current);
+
+        const current = await authService.getCurrentUser();
+        if (current) {
+          try {
+            const parsed = JSON.parse(activeSessionRaw);
+            if (parsed && parsed.userId === current.id) {
+              if (current.role === 'ADMIN') {
+                const hasAdminSession = sessionStorage.getItem('trustvault_admin_session') === 'active';
+                if (!hasAdminSession) {
+                  setUser(null);
+                  return;
+                }
+              }
+              setUser(current);
+              return;
+            }
+          } catch {}
+        }
+        setUser(null);
       } catch (err) {
         console.error('Failed to initialize auth state', err);
+        setUser(null);
       } finally {
         setLoading(false);
       }
@@ -86,6 +103,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string, rememberMe?: boolean): Promise<User> => {
     const loggedUser = await authService.login(email, password, rememberMe);
+    sessionStorage.setItem('trustvault_active_session', JSON.stringify({
+      userId: loggedUser.id,
+      role: loggedUser.role,
+      email: loggedUser.email,
+    }));
     if (loggedUser.role === 'ADMIN') {
       sessionStorage.setItem('trustvault_admin_session', 'active');
     } else {
@@ -133,13 +155,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = async () => {
+    sessionStorage.removeItem('trustvault_active_session');
     sessionStorage.removeItem('trustvault_admin_session');
+    sessionStorage.removeItem('trustvault_session_id');
+    localStorage.removeItem('trustvault_current_user_id');
     await authService.logout();
     setUser(null);
   };
 
   const switchUser = async (userId: string) => {
     const target = await authService.switchUser(userId);
+    sessionStorage.setItem('trustvault_active_session', JSON.stringify({
+      userId: target.id,
+      role: target.role,
+      email: target.email,
+    }));
     if (target.role === 'ADMIN') {
       sessionStorage.setItem('trustvault_admin_session', 'active');
     } else {
@@ -150,8 +180,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const resetDemo = async () => {
+    sessionStorage.removeItem('trustvault_active_session');
     sessionStorage.removeItem('trustvault_admin_session');
+    sessionStorage.removeItem('trustvault_session_id');
     resetAllDemoData();
+    setUser(null);
     await refreshUsers();
   };
 
