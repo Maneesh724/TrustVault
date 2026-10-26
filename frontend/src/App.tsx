@@ -173,7 +173,7 @@ export const App: React.FC = () => {
             {/* ========================================================= */}
             {/* 1. PUBLIC ROUTES                                          */}
             {/* ========================================================= */}
-            <Route path="/" element={<LandingPage />} />
+            <Route path="/" element={<RoleBasedLanding />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterChooseRolePage />} />
             <Route path="/register/owner" element={<RegisterRolePage role="OWNER" />} />
