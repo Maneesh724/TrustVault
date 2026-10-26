@@ -41,6 +41,39 @@ export const DocumentPreviewModal: React.FC<DocumentPreviewModalProps> = ({
       setLoadingFile(true);
       setLoadError(null);
 
+      // Check for inline base64 data on document or in session cache
+      const inlineB64 = document.fileBase64 || sessionStorage.getItem(`tv_doc_b64_${document.id}`) || localStorage.getItem(`tv_doc_b64_${document.id}`);
+      if (inlineB64 && inlineB64.trim()) {
+        try {
+          let b64 = inlineB64.trim();
+          if (b64.includes(',')) {
+            b64 = b64.split(',')[1];
+          }
+          b64 = b64.replace(/\s+/g, '');
+          const padding = b64.length % 4;
+          if (padding) b64 += '='.repeat(4 - padding);
+
+          const binary = atob(b64);
+          if (isText) {
+            setTextContent(binary);
+            setLoadingFile(false);
+            return;
+          }
+          const bytes = new Uint8Array(binary.length);
+          for (let i = 0; i < binary.length; i++) {
+            bytes[i] = binary.charCodeAt(i);
+          }
+          const mime = document.mimeType || (isPdf ? 'application/pdf' : 'application/octet-stream');
+          const blob = new Blob([bytes], { type: mime });
+          createdUrl = URL.createObjectURL(blob);
+          setBlobUrl(createdUrl);
+          setLoadingFile(false);
+          return;
+        } catch (b64Err) {
+          console.warn('Direct base64 decode fallback to network fetch:', b64Err);
+        }
+      }
+
       const targetPath = `/api/documents/${encodeURIComponent(document.id)}/download?userId=${encodeURIComponent(
         currentUser.id
       )}&preview=1`;

@@ -1607,6 +1607,9 @@ class DocumentListView(APIView):
         ensure_file_content_column()
 
         b64_content = request.data.get('fileBase64', '').strip()
+        if b64_content and ',' in b64_content:
+            b64_content = b64_content.split(',', 1)[1].strip()
+
         if file_obj:
             content = file_obj.read()
             sha256 = hashlib.sha256(content).hexdigest()
@@ -1616,6 +1619,13 @@ class DocumentListView(APIView):
                 except Exception:
                     pass
             file_obj.seek(0)
+        elif b64_content:
+            try:
+                decoded_bytes = base64.b64decode(b64_content)
+                sha256 = hashlib.sha256(decoded_bytes).hexdigest()
+                file_size = len(decoded_bytes)
+            except Exception:
+                sha256 = hashlib.sha256(f"{title}{timezone.now()}".encode()).hexdigest()
         else:
             sha256 = hashlib.sha256(f"{title}{timezone.now()}".encode()).hexdigest()
 
@@ -2077,7 +2087,16 @@ class DocumentDownloadView(APIView):
         b64_data = getattr(doc, 'file_content', '') or ''
         if b64_data.strip():
             try:
-                file_bytes = base64.b64decode(b64_data.strip())
+                clean_b64 = b64_data.strip()
+                if ',' in clean_b64:
+                    clean_b64 = clean_b64.split(',', 1)[1]
+                import re
+                clean_b64 = re.sub(r'\s+', '', clean_b64)
+                # Ensure correct base64 padding
+                padding_needed = len(clean_b64) % 4
+                if padding_needed:
+                    clean_b64 += '=' * (4 - padding_needed)
+                file_bytes = base64.b64decode(clean_b64)
                 response = HttpResponse(file_bytes, content_type=doc.mime_type or 'application/octet-stream')
                 response['Content-Disposition'] = f'{disposition}; filename="{doc.filename}"'
                 response['Content-Security-Policy'] = "frame-ancestors 'self' https://trust-vault-9c688.web.app https://trust-vault-9c688.firebaseapp.com http://localhost:5173 http://localhost:5174;"

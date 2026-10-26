@@ -77,11 +77,14 @@ export const getStoredDocuments = (): VaultDocument[] => {
   }
   try {
     const parsed: VaultDocument[] = JSON.parse(data);
-    // Filter out obsolete legacy mock documents
-    const liveDocs = parsed.filter((d) => d.id !== 'doc-701' && d.id !== 'doc-702');
-    if (liveDocs.length !== parsed.length) {
-      localStorage.setItem(STORAGE_KEYS.DOCUMENTS, JSON.stringify(liveDocs));
-    }
+    // Filter out obsolete legacy mock documents and restore cached fileBase64
+    const liveDocs = parsed.filter((d) => d.id !== 'doc-701' && d.id !== 'doc-702').map((d) => {
+      if (!d.fileBase64) {
+        const cached = sessionStorage.getItem(`tv_doc_b64_${d.id}`) || localStorage.getItem(`tv_doc_b64_${d.id}`);
+        if (cached) return { ...d, fileBase64: cached };
+      }
+      return d;
+    });
     return liveDocs;
   } catch {
     return [];
@@ -89,7 +92,27 @@ export const getStoredDocuments = (): VaultDocument[] => {
 };
 
 export const setStoredDocuments = (docs: VaultDocument[]): void => {
-  localStorage.setItem(STORAGE_KEYS.DOCUMENTS, JSON.stringify(docs));
+  try {
+    docs.forEach((doc) => {
+      if (doc.fileBase64) {
+        try {
+          sessionStorage.setItem(`tv_doc_b64_${doc.id}`, doc.fileBase64);
+        } catch {}
+      }
+    });
+    localStorage.setItem(STORAGE_KEYS.DOCUMENTS, JSON.stringify(docs));
+  } catch {
+    // If quota exceeded, strip large fileBase64 strings from localStorage copy
+    const lightweight = docs.map((d) => {
+      if (d.fileBase64 && d.fileBase64.length > 50000) {
+        return { ...d, fileBase64: undefined };
+      }
+      return d;
+    });
+    try {
+      localStorage.setItem(STORAGE_KEYS.DOCUMENTS, JSON.stringify(lightweight));
+    } catch {}
+  }
 };
 
 export const getStoredAuditLogs = (): AuditLog[] => {

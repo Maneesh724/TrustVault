@@ -7,6 +7,7 @@ import {
 } from './storage';
 import { adminService } from './adminService';
 import { firebaseService } from './firebaseService';
+import { apiUrl } from '../config/api';
 
 type NotificationListener = () => void;
 const listeners: Set<NotificationListener> = new Set();
@@ -183,7 +184,11 @@ export const notificationService = {
 
   async fetchLiveNotifications(): Promise<AdminNotification[]> {
     try {
-      const res = await fetch('/api/notifications');
+      const sessionId = sessionStorage.getItem('trustvault_session_id');
+      const res = await fetch(apiUrl('/api/notifications'), {
+        credentials: 'include',
+        headers: sessionId ? { 'X-Session-ID': sessionId } : {},
+      });
       if (res.ok) {
         const live = await res.json();
         setStoredNotifications(live);

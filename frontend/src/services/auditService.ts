@@ -1,6 +1,7 @@
 import { AuditLog, AuditSeverity } from '../types';
 import { getStoredAuditLogs, appendStoredAuditLog } from './storage';
 import { firebaseService } from './firebaseService';
+import { apiUrl } from '../config/api';
 
 export interface AuditFilterParams {
   search?: string;
@@ -15,7 +16,11 @@ export interface AuditFilterParams {
 export const auditService = {
   async getAuditLogs(filters?: AuditFilterParams): Promise<AuditLog[]> {
     try {
-      const res = await fetch('/api/audit');
+      const sessionId = sessionStorage.getItem('trustvault_session_id');
+      const res = await fetch(apiUrl('/api/audit'), {
+        credentials: 'include',
+        headers: sessionId ? { 'X-Session-ID': sessionId } : {},
+      });
       if (res.ok) {
         const liveLogs = await res.json();
         localStorage.setItem('trustvault_audit_logs', JSON.stringify(liveLogs));

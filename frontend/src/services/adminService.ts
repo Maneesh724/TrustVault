@@ -5,11 +5,16 @@ import {
   appendStoredAuditLog,
 } from './storage';
 import { firebaseService } from './firebaseService';
+import { apiUrl } from '../config/api';
 
 export const adminService = {
   async getAllUsers(): Promise<User[]> {
     try {
-      const res = await fetch('/api/auth/users');
+      const sessionId = sessionStorage.getItem('trustvault_session_id');
+      const res = await fetch(apiUrl('/api/auth/users'), {
+        credentials: 'include',
+        headers: sessionId ? { 'X-Session-ID': sessionId } : {},
+      });
       if (res.ok) {
         const data = await res.json();
         if (data.users) {
@@ -110,9 +115,14 @@ export const adminService = {
 
     // Call real backend first
     try {
-      const res = await fetch('/api/auth/approve', {
+      const sessionId = sessionStorage.getItem('trustvault_session_id');
+      const res = await fetch(apiUrl('/api/auth/approve'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionId ? { 'X-Session-ID': sessionId } : {}),
+        },
+        credentials: 'include',
         body: JSON.stringify({ targetUserId, approverName: actor.name }),
       });
       if (res.ok) {
@@ -191,9 +201,14 @@ export const adminService = {
 
     // Call real backend first
     try {
-      const res = await fetch('/api/auth/reject', {
+      const sessionId = sessionStorage.getItem('trustvault_session_id');
+      const res = await fetch(apiUrl('/api/auth/reject'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionId ? { 'X-Session-ID': sessionId } : {}),
+        },
+        credentials: 'include',
         body: JSON.stringify({ targetUserId, rejectorName: actorName }),
       });
       if (res.ok) {

@@ -5,6 +5,7 @@ import {
   appendStoredAuditLog,
 } from './storage';
 import { notificationService } from './notificationService';
+import { apiUrl } from '../config/api';
 
 export async function calculateSHA256(file: File): Promise<string> {
   const buffer = await file.arrayBuffer();
@@ -30,12 +31,24 @@ export interface UploadDocumentPayload {
 export const documentService = {
   async getDocuments(userId?: string): Promise<VaultDocument[]> {
     try {
-      const url = userId ? `/api/documents?userId=${encodeURIComponent(userId)}` : '/api/documents';
-      const res = await fetch(url);
+      const path = userId ? `/api/documents?userId=${encodeURIComponent(userId)}` : '/api/documents';
+      const sessionId = sessionStorage.getItem('trustvault_session_id');
+      const res = await fetch(apiUrl(path), {
+        credentials: 'include',
+        headers: sessionId ? { 'X-Session-ID': sessionId } : {},
+      });
       if (res.ok) {
         const liveDocs = await res.json();
-        setStoredDocuments(liveDocs);
-        return liveDocs;
+        const stored = getStoredDocuments();
+        const merged = liveDocs.map((ld: VaultDocument) => {
+          const match = stored.find((s) => s.id === ld.id);
+          return {
+            ...ld,
+            fileBase64: ld.fileBase64 || match?.fileBase64 || sessionStorage.getItem(`tv_doc_b64_${ld.id}`) || localStorage.getItem(`tv_doc_b64_${ld.id}`) || '',
+          };
+        });
+        setStoredDocuments(merged);
+        return merged;
       }
     } catch {}
     return getStoredDocuments();
@@ -47,7 +60,12 @@ export const documentService = {
 
     if (!doc) {
       try {
-        const res = await fetch(`/api/documents/${encodeURIComponent(id)}/?userId=${encodeURIComponent(currentUser.id)}`);
+        const path = `/api/documents/${encodeURIComponent(id)}/?userId=${encodeURIComponent(currentUser.id)}`;
+        const sessionId = sessionStorage.getItem('trustvault_session_id');
+        const res = await fetch(apiUrl(path), {
+          credentials: 'include',
+          headers: sessionId ? { 'X-Session-ID': sessionId } : {},
+        });
         if (res.ok) {
           const data = await res.json();
           if (data.document) {
@@ -168,12 +186,20 @@ export const documentService = {
         formData.append('sharePermission', payload.sharePermission || 'READ');
       }
 
-      const res = await fetch('/api/documents', {
+      const sessionId = sessionStorage.getItem('trustvault_session_id');
+      const res = await fetch(apiUrl('/api/documents'), {
         method: 'POST',
+        headers: sessionId ? { 'X-Session-ID': sessionId } : {},
+        credentials: 'include',
         body: formData,
       });
       if (res.ok) {
         const liveDoc: VaultDocument = await res.json();
+        liveDoc.fileBase64 = fileBase64;
+        try {
+          sessionStorage.setItem(`tv_doc_b64_${liveDoc.id}`, fileBase64);
+          localStorage.setItem(`tv_doc_b64_${liveDoc.id}`, fileBase64);
+        } catch {}
         const updated = [liveDoc, ...docs.filter((d) => d.id !== liveDoc.id)];
         setStoredDocuments(updated);
         notificationService.notifyDocUpload(liveDoc, currentUser);
@@ -215,7 +241,13 @@ export const documentService = {
       grantsCount: 0,
       versions: [initialVersion],
       grants: [],
+      fileBase64: fileBase64,
     };
+
+    try {
+      sessionStorage.setItem(`tv_doc_b64_${newDocId}`, fileBase64);
+      localStorage.setItem(`tv_doc_b64_${newDocId}`, fileBase64);
+    } catch {}
 
     const updated = [newDoc, ...docs];
     setStoredDocuments(updated);
@@ -251,7 +283,7 @@ export const documentService = {
 
     // Call backend API to delete from PostgreSQL and clean up grants/versions
     try {
-      const sessionId = localStorage.getItem('tv_session_id') || '';
+      const sessionId = sessionStorage.getItem('trustvault_session_id') || localStorage.getItem('tv_session_id') || '';
       const params = new URLSearchParams({
         userId: currentUser.id,
         userEmail: currentUser.email,
@@ -259,7 +291,7 @@ export const documentService = {
       });
 
       // Try DELETE first
-      let res = await fetch(`/api/documents/${encodeURIComponent(id)}/?${params.toString()}`, {
+      let res = await fetch(apiUrl(`/api/documents/${encodeURIComponent(id)}/?${params.toString()}`), {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -270,7 +302,7 @@ export const documentService = {
 
       // If backend returns 405 (Method Not Allowed), fallback to POST delete action
       if (res.status === 405) {
-        res = await fetch(`/api/documents/${encodeURIComponent(id)}/delete/?${params.toString()}`, {
+        res = await fetch(apiUrl(`/api/documents/${encodeURIComponent(id)}/delete/?${params.toString()}`), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -407,10 +439,30 @@ export const documentService = {
     notificationService.notifyUserAction('DOC_DOWNLOAD', currentUser, doc.title);
     notificationService.notifyDocAccessed(doc, currentUser, 'DOWNLOAD');
 
-    // 1. Fetch real uploaded document binary stream from backend
+    // 1. First priority: Direct decoded binary from real uploaded fileBase64
+    const cachedB64 = doc.fileBase64 || sessionStorage.getItem(`tv_doc_b64_${doc.id}`) || localStorage.getItem(`tv_doc_b64_${doc.id}`);
+    if (cachedB64 && cachedB64.trim()) {
+      try {
+        let b64 = cachedB64.trim();
+        if (b64.includes(',')) b64 = b64.split(',')[1];
+        b64 = b64.replace(/\s+/g, '');
+        const padding = b64.length % 4;
+        if (padding) b64 += '='.repeat(4 - padding);
+        const binary = atob(b64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+        const blob = new Blob([bytes], { type: doc.mimeType || 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        return { downloadUrl: url, filename: doc.filename };
+      } catch (e) {
+        console.warn('Direct base64 decode download notice:', e);
+      }
+    }
+
+    // 2. Second priority: Fetch real uploaded document binary stream from backend
     try {
       const sessionId = sessionStorage.getItem('trustvault_session_id');
-      const res = await fetch(`/api/documents/${encodeURIComponent(docId)}/download?userId=${encodeURIComponent(currentUser.id)}`, {
+      const res = await fetch(apiUrl(`/api/documents/${encodeURIComponent(docId)}/download?userId=${encodeURIComponent(currentUser.id)}`), {
         credentials: 'include',
         headers: sessionId ? { 'X-Session-ID': sessionId } : {},
       });
@@ -434,7 +486,7 @@ export const documentService = {
       console.warn('Backend download endpoint error, applying secure fallback', err);
     }
 
-    // 2. Fallback: generate a valid binary PDF document (not plain text)
+    // 3. Fallback: generate a valid binary PDF document
     const validPdfBytes = `%PDF-1.4\n1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >> endobj\n4 0 obj << /Length 200 >> stream\nBT /F1 16 Tf 50 720 Td (TrustVault Protected Document: ${doc.title}) Tj 0 -30 Td /F1 12 Tf (Security Classification: ${doc.classification}) Tj 0 -20 Td (Authorized Recipient: ${currentUser.email}) Tj 0 -20 Td (SHA-256 Hash: ${doc.sha256Hash.slice(0, 32)}...) Tj ET\nendstream endobj\n5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj\nxref\n0 6\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000244 00000 n \n0000000495 00000 n \ntrailer << /Size 6 /Root 1 0 R >>\nstartxref\n575\n%%EOF`;
 
     const blob = new Blob([validPdfBytes], { type: doc.mimeType || 'application/pdf' });
@@ -444,9 +496,14 @@ export const documentService = {
 
   async revokeAccess(docId: string, userId: string, actorName?: string): Promise<void> {
     try {
-      await fetch(`/api/documents/${encodeURIComponent(docId)}/revoke`, {
+      const sessionId = sessionStorage.getItem('trustvault_session_id');
+      await fetch(apiUrl(`/api/documents/${encodeURIComponent(docId)}/revoke`), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionId ? { 'X-Session-ID': sessionId } : {}),
+        },
+        credentials: 'include',
         body: JSON.stringify({ userId, revokedBy: actorName || 'Document Owner' }),
       });
     } catch {}

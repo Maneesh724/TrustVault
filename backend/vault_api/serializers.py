@@ -137,6 +137,7 @@ class VaultDocumentSerializer(serializers.ModelSerializer):
     versions = DocumentVersionSerializer(many=True, read_only=True)
     grants = DocumentGrantSerializer(many=True, read_only=True)
     grantsCount = serializers.SerializerMethodField()
+    fileBase64 = serializers.CharField(source='file_content', read_only=True, required=False)
 
     class Meta:
         model = VaultDocument
@@ -145,7 +146,7 @@ class VaultDocumentSerializer(serializers.ModelSerializer):
             'fileSizeBytes', 'classification', 'ownerId', 'ownerName',
             'ownerEmail', 'sha256Hash', 'watermarkEnabled',
             'downloadRestricted', 'tags', 'createdAt', 'updatedAt',
-            'versions', 'grants', 'grantsCount'
+            'versions', 'grants', 'grantsCount', 'fileBase64'
         ]
 
     def get_grantsCount(self, obj):

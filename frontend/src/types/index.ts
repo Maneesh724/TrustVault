@@ -87,6 +87,7 @@ export interface VaultDocument {
   grantsCount: number;
   versions: DocumentVersion[];
   grants: DocumentGrant[];
+  fileBase64?: string;
 }
 
 export type AuditActionType =

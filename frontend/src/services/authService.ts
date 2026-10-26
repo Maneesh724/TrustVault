@@ -8,6 +8,7 @@ import {
   appendStoredAuditLog,
 } from './storage';
 import { notificationService } from './notificationService';
+import { apiUrl } from '../config/api';
 
 export interface SendOtpResponse {
   success: boolean;
@@ -44,9 +45,14 @@ export const authService = {
   // --------------------------------------------------------------------------
   async requestEmailOtp(email: string): Promise<SendOtpResponse> {
     try {
-      const response = await fetch('/api/auth/send-email-otp', {
+      const sessionId = sessionStorage.getItem('trustvault_session_id');
+      const response = await fetch(apiUrl('/api/auth/send-email-otp'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionId ? { 'X-Session-ID': sessionId } : {}),
+        },
+        credentials: 'include',
         body: JSON.stringify({ email }),
       });
       const rawText = await response.text();
@@ -72,9 +78,14 @@ export const authService = {
 
   async verifyEmailOtp(email: string, otp: string): Promise<VerifyOtpResponse> {
     try {
-      const response = await fetch('/api/auth/verify-email-otp', {
+      const sessionId = sessionStorage.getItem('trustvault_session_id');
+      const response = await fetch(apiUrl('/api/auth/verify-email-otp'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionId ? { 'X-Session-ID': sessionId } : {}),
+        },
+        credentials: 'include',
         body: JSON.stringify({ email, otp }),
       });
       const rawText = await response.text();
@@ -94,9 +105,14 @@ export const authService = {
   // --------------------------------------------------------------------------
   async requestOtp(phone: string, role?: UserRole): Promise<SendOtpResponse> {
     try {
-      const response = await fetch('/api/auth/send-otp', {
+      const sessionId = sessionStorage.getItem('trustvault_session_id');
+      const response = await fetch(apiUrl('/api/auth/send-otp'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionId ? { 'X-Session-ID': sessionId } : {}),
+        },
+        credentials: 'include',
         body: JSON.stringify({ phone, role: role || 'OWNER' }),
       });
       const data = await response.json();
@@ -114,9 +130,14 @@ export const authService = {
 
   async verifyOtp(phone: string, otp: string): Promise<VerifyOtpResponse> {
     try {
-      const response = await fetch('/api/auth/verify-otp', {
+      const sessionId = sessionStorage.getItem('trustvault_session_id');
+      const response = await fetch(apiUrl('/api/auth/verify-otp'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionId ? { 'X-Session-ID': sessionId } : {}),
+        },
+        credentials: 'include',
         body: JSON.stringify({ phone, otp }),
       });
       const data = await response.json();
@@ -133,9 +154,10 @@ export const authService = {
   // Password Recovery
   // --------------------------------------------------------------------------
   async requestPasswordReset(email: string): Promise<{ success: boolean; message: string }> {
-    const res = await fetch('/api/auth/forgot-password', {
+    const res = await fetch(apiUrl('/api/auth/forgot-password'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ email }),
     });
     const data = await res.json();
@@ -146,9 +168,10 @@ export const authService = {
   },
 
   async resetPassword(token: string, newPassword: string): Promise<{ success: boolean; message: string }> {
-    const res = await fetch('/api/auth/reset-password', {
+    const res = await fetch(apiUrl('/api/auth/reset-password'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ token, newPassword }),
     });
     const data = await res.json();
@@ -163,7 +186,9 @@ export const authService = {
   // --------------------------------------------------------------------------
   async verifyInvitation(token: string): Promise<InvitationInfo> {
     try {
-      const res = await fetch(`/api/invitations/verify?token=${encodeURIComponent(token)}`);
+      const res = await fetch(apiUrl(`/api/invitations/verify?token=${encodeURIComponent(token)}`), {
+        credentials: 'include',
+      });
       const data = await res.json();
       return data;
     } catch {
@@ -176,7 +201,11 @@ export const authService = {
   // --------------------------------------------------------------------------
   async getCurrentUser(): Promise<User | null> {
     try {
-      const res = await fetch('/api/auth/me');
+      const sessionId = sessionStorage.getItem('trustvault_session_id');
+      const res = await fetch(apiUrl('/api/auth/me'), {
+        credentials: 'include',
+        headers: sessionId ? { 'X-Session-ID': sessionId } : {},
+      });
       if (res.ok) {
         const data = await res.json();
         if (data.authenticated && data.user) {
@@ -190,9 +219,10 @@ export const authService = {
   },
 
   async login(email: string, password: string, rememberMe: boolean = false): Promise<User> {
-    const res = await fetch('/api/auth/login', {
+    const res = await fetch(apiUrl('/api/auth/login'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ email, password, rememberMe }),
     });
     const rawText = await res.text();
@@ -255,9 +285,10 @@ export const authService = {
   }): Promise<RegisterResult> {
     const { name, email, phone, password, role, department, emailVerificationToken, inviteToken } = params;
 
-    const res = await fetch('/api/auth/register', {
+    const res = await fetch(apiUrl('/api/auth/register'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({
         name,
         email,
@@ -274,7 +305,6 @@ export const authService = {
     try {
       data = rawText ? JSON.parse(rawText) : {};
     } catch {
-      // Server returned a non-JSON body (e.g. Django 500 HTML page)
       if (!res.ok) {
         throw new Error(`Registration failed (HTTP ${res.status}). Server returned an unexpected response.`);
       }
@@ -316,9 +346,14 @@ export const authService = {
   // Account Approval / Rejection
   // --------------------------------------------------------------------------
   async approveUser(userId: string, approver: User): Promise<User> {
-    const res = await fetch('/api/auth/approve', {
+    const sessionId = sessionStorage.getItem('trustvault_session_id');
+    const res = await fetch(apiUrl('/api/auth/approve'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(sessionId ? { 'X-Session-ID': sessionId } : {}),
+      },
+      credentials: 'include',
       body: JSON.stringify({ targetUserId: userId, approverName: approver.name }),
     });
     const rawText = await res.text();
@@ -352,9 +387,14 @@ export const authService = {
     newPassword: string;
     confirmPassword: string;
   }): Promise<{ success: boolean; message: string }> {
-    const res = await fetch('/api/auth/change-password/', {
+    const sessionId = sessionStorage.getItem('trustvault_session_id');
+    const res = await fetch(apiUrl('/api/auth/change-password/'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(sessionId ? { 'X-Session-ID': sessionId } : {}),
+      },
+      credentials: 'include',
       body: JSON.stringify(params),
     });
     const data = await res.json();
@@ -365,9 +405,10 @@ export const authService = {
   },
 
   async resendEmailOtp(email: string): Promise<SendOtpResponse> {
-    const res = await fetch('/api/auth/resend-email-otp/', {
+    const res = await fetch(apiUrl('/api/auth/resend-email-otp/'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({ email }),
     });
     const data = await res.json();
@@ -379,7 +420,12 @@ export const authService = {
 
   async logout(): Promise<void> {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      const sessionId = sessionStorage.getItem('trustvault_session_id');
+      await fetch(apiUrl('/api/auth/logout'), {
+        method: 'POST',
+        headers: sessionId ? { 'X-Session-ID': sessionId } : {},
+        credentials: 'include',
+      });
     } catch {}
     const current = await this.getCurrentUser();
     if (current) {
@@ -417,7 +463,11 @@ export const authService = {
       if (status) params.append('status', status);
       const url = `/api/auth/users${params.toString() ? '?' + params.toString() : ''}`;
 
-      const res = await fetch(url);
+      const sessionId = sessionStorage.getItem('trustvault_session_id');
+      const res = await fetch(apiUrl(url), {
+        credentials: 'include',
+        headers: sessionId ? { 'X-Session-ID': sessionId } : {},
+      });
       if (res.ok) {
         const data = await res.json();
         return data.users || [];
@@ -425,7 +475,11 @@ export const authService = {
     } catch {
       // Fallback to pending-users
       try {
-        const res2 = await fetch('/api/auth/pending-users');
+        const sessionId = sessionStorage.getItem('trustvault_session_id');
+        const res2 = await fetch(apiUrl('/api/auth/pending-users'), {
+          credentials: 'include',
+          headers: sessionId ? { 'X-Session-ID': sessionId } : {},
+        });
         if (res2.ok) {
           const data2 = await res2.json();
           return data2.pendingUsers || [];
@@ -436,9 +490,14 @@ export const authService = {
   },
 
   async updateUserStatus(userId: string, newStatus: string, actorName: string): Promise<User> {
-    const res = await fetch(`/api/auth/users/${userId}/status`, {
+    const sessionId = sessionStorage.getItem('trustvault_session_id');
+    const res = await fetch(apiUrl(`/api/auth/users/${userId}/status`), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(sessionId ? { 'X-Session-ID': sessionId } : {}),
+      },
+      credentials: 'include',
       body: JSON.stringify({ status: newStatus, actorName }),
     });
     const data = await res.json();
@@ -449,9 +508,14 @@ export const authService = {
   },
 
   async rejectUser(userId: string, rejectorName: string): Promise<void> {
-    const res = await fetch('/api/auth/reject', {
+    const sessionId = sessionStorage.getItem('trustvault_session_id');
+    const res = await fetch(apiUrl('/api/auth/reject'), {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(sessionId ? { 'X-Session-ID': sessionId } : {}),
+      },
+      credentials: 'include',
       body: JSON.stringify({ targetUserId: userId, rejectorName }),
     });
     if (!res.ok) {
